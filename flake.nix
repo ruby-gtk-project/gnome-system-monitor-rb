@@ -16,6 +16,7 @@
             ruby_3_4
             bundler
             bundix
+            atk
             gtk4
             libadwaita
             gobject-introspection
@@ -25,7 +26,43 @@
             gdk-pixbuf
             harfbuzz
             libyaml
+            # `make test` validates the appstream and desktop metadata.
+            appstream
+            desktop-file-utils
+            gettext
             openssl
+
+            # The ruby-gnome extconfs resolve Requires.private out of the .pc
+            # files, so every private dependency of glib/cairo/pango/gtk needs
+            # its own .pc here or the gem fails to configure.
+            expat
+            freetype
+            fontconfig
+            fribidi
+            graphene
+            lerc
+            libdatrie
+            libdeflate
+            libepoxy
+            libpng
+            libpthread-stubs
+            libselinux
+            libsepol
+            libsysprof-capture
+            libthai
+            libwebp
+            libxkbcommon
+            libX11
+            libXau
+            libxcb
+            libXdmcp
+            libXext
+            libXrender
+            pcre2
+            pixman
+            util-linux
+            xz
+            zstd
           ];
 
           shellHook = ''

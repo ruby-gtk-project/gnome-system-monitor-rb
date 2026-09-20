@@ -2,7 +2,9 @@
 
 source "https://rubygems.org"
 
+gem "adwaita"
 gem "gem_kit"
+gem "gettext"
 gem "gtk4"
 
 group :development do

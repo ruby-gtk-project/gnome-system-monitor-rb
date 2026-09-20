@@ -1,0 +1,18 @@
+# Ruby sources carrying translatable strings. Upstream's POTFILES lists the
+# C++ and .ui files this port replaced; the catalogues in po/ are upstream's
+# and are reused unchanged, so the msgids here have to match theirs.
+lib/gnome_system_monitor/about.rb
+lib/gnome_system_monitor/columns.rb
+lib/gnome_system_monitor/detail_windows.rb
+lib/gnome_system_monitor/dialogs.rb
+lib/gnome_system_monitor/disks_view.rb
+lib/gnome_system_monitor/graph.rb
+lib/gnome_system_monitor/preferences.rb
+lib/gnome_system_monitor/process_properties.rb
+lib/gnome_system_monitor/process_view.rb
+lib/gnome_system_monitor/resources_view.rb
+lib/gnome_system_monitor/units.rb
+lib/gnome_system_monitor/window.rb
+data/org.gnome.SystemMonitor.desktop
+data/org.gnome.SystemMonitor.metainfo.xml
+data/shortcuts-dialog.ui

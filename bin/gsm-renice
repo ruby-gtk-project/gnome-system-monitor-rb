@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Privileged half of "Change Priority", run under pkexec when the process
+# belongs to another user.
+#
+# Usage: gsm-renice PRIORITY PID
+
+if ARGV.length != 2
+  warn("usage: gsm-renice PRIORITY PID")
+  exit(2)
+end
+
+begin
+  Process.setpriority(Process::PRIO_PROCESS, Integer(ARGV[1]), Integer(ARGV[0]))
+rescue StandardError => e
+  warn("gsm-renice: #{e.message}")
+  exit(1)
+end

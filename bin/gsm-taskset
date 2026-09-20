@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Privileged half of "Set Affinity", run under pkexec when the process belongs
+# to another user. The arguments are handed straight to taskset, exactly as
+# upstream's helper does.
+#
+# Usage: gsm-taskset -pc[a] CPU_LIST PID
+
+exec("taskset", *ARGV)
