@@ -1,0 +1,12 @@
+module Gnome
+  module System
+    module Monitor
+      module Rb
+        module Version
+          VERSION: String
+        end
+        VERSION: String
+      end
+    end
+  end
+end
