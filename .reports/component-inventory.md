@@ -19,18 +19,22 @@ The raw scan is in the scratchpad, not here: its `css` stream is contaminated by
 
 ## Scale
 
+Re-surveyed at `1204f8bb` (after `eed22dda`, which closed four of the
+previous survey's top gaps).
+
 | | Upstream | Port |
 |---|---:|---:|
-| widget rows (scan) | 478 | 66 |
-| distinct widget types | 79 | 36 |
-| distinct CSS classes (read, not scanned) | 11 | 5 |
-| source files contributing UI | 10 `.ui` + 14 `.cpp`/`.c` | 26 `.rb` |
+| widget rows (scan) | 478 | 142 |
+| distinct widget types | 79 | 47 |
+| distinct CSS classes applied | 11 | 5 |
+| source files contributing UI | 10 `.ui` + 14 `.cpp`/`.c` | 27 `.rb` |
 
-The port is largely complete at the component level — all three pages, all
-three detail windows, all four dialogs and both menus exist. What is missing is
-concentrated in four places: the `win.show-page` radio action, the two-variant
-primary menu, process icons (`prettytable.cpp`), and a set of CSS classes and
-`GtkShortcutController` shortcuts carried by upstream's `.ui` files.
+Every upstream component now has a port file: all three pages, all three detail
+windows, all four dialogs, both primary-menu variants, the process-icon table
+and the smooth-refresh governor. What remains is not missing components but
+missing *facets* of present ones — CSS classes, `GtkShortcutController`
+shortcuts, one action (`win.show-page`), and a handful of per-row widgets
+(disks device icon, lsof process icon) and live-update signal sources.
 
 ---
 
@@ -59,24 +63,28 @@ provider and the icon theme search path.
 **Gap:** `app.preferences` is not given `<Primary>comma`
 (`src/application.cpp:548`).
 
-#### `src/prettytable.cpp`, `src/prettytable.h` → *no port file* — **missing**
+#### `src/prettytable.cpp`, `src/prettytable.h`, `src/defaulttable.h` → `lib/gnome_system_monitor/pretty_table.rb` — present
 
-Upstream's per-process icon lookup: `GAppInfo` / desktop-file match on the
-process name, falling back to the theme and then to a default. Feeds the icon
-cell of the process table's Name column.
+Upstream's per-process icon lookup, in upstream's order: the installed
+application owning the executable (flatpaks by the app id in their cgroup), the
+icon theme under the process's own name, the well-known-command table from
+`defaulttable.h`, the kernel-thread icon, then a plain executable icon. The
+applications directories are watched so an install or removal rebuilds the
+cache, and an icon-theme change re-resolves every process. Candidates stop at
+`Gio::Icon` rather than `Gdk::Texture` because the port's name cell is a
+`Gtk::Image` in a `Gtk::ColumnView`, not a `GtkCellView`.
 
-**Gap:** `lib/gnome_system_monitor/pretty_table.rb` does not exist.
-`process_view.rb:264` shows the same `application-x-executable-symbolic` for
-every process.
+**Remaining:** the lsof window's Process cell still does not use it.
 
-#### `src/smooth_refresh.cpp`, `src/smooth_refresh.h` → *no port file* — **missing**
+#### `src/smooth_refresh.cpp`, `src/smooth_refresh.h` → `lib/gnome_system_monitor/smooth_refresh.rb` — present
 
-Upstream's adaptive refresh: when System Monitor's own CPU share exceeds a
-threshold it stretches the process-list interval, which is what the
-`smooth-refresh` GSettings key and the "Enable _Smooth Refresh" switch control.
-
-**Gap:** the switch exists in `preferences.rb:108` and the key in
-`settings.rb:23`, but nothing reads it. The switch is inert.
+Upstream's adaptive refresh, with its thresholds and fuzzy logic: this
+process's CPU time from `/proc/self/stat` and the machine's from `/proc/stat`,
+stretching the process-list interval when System Monitor's own CPU share runs
+high. `window.rb:237` ticks at whatever it settles on, standing the old
+`GLib::Timeout` source down when the interval moves. Behind the "Enable
+_Smooth Refresh" switch (`preferences.rb`) and the `smooth-refresh` key
+(`settings.rb`).
 
 #### `src/update_interval.cpp` → folded into `window.rb` (`start_timers`/`restart_timers`) — present
 
@@ -136,11 +144,7 @@ Window actions (`src/interface.cpp:873`, 17 entries):
 **Gaps in this component:**
 1. `win.show-page` radio action and the `<Alt>1` / `<Alt>2` / `<Alt>3`
    accelerators — the shortcuts dialog advertises all three.
-2. The primary menu never switches to `generic-window-menu` on the Resources
-   and File Systems pages, so process-only items (Refresh, Active/All/My
-   Processes, Show Dependencies) stay visible there
-   (`src/interface.cpp:718,735`).
-3. `gtk_search_bar_set_key_capture_widget` — typing in the Processes page does
+2. `gtk_search_bar_set_key_capture_widget` — typing in the Processes page does
    not open the search bar.
 4. The `Delete` `GtkShortcutController` on the End Process button.
 5. `notify::suspended` handling (upstream stops its timers when the window is
@@ -152,7 +156,7 @@ Three menu models, 27 items total.
 
 | Menu | Items | Port |
 |---|---:|---|
-| `generic-window-menu` | 5 (Search for Open Files, Preferences, Help, Keyboard Shortcuts, About) | **missing** — no reduced variant is built |
+| `generic-window-menu` | 5 (Search for Open Files, Preferences, Help, Keyboard Shortcuts, About) | present as `Window#generic_menu`; shared sections built once |
 | `process-window-menu` | 9 (Refresh; Active/All/My Processes; Show Dependencies; + the generic 5) | present as `main_menu` |
 | `process-popup-menu` | 13 incl. `_Change Priority` submenu (Very High/High/Normal/Low/Very Low/Custom) and Set Affinity, Pause, Resume, End, Force Stop | present |
 
@@ -186,9 +190,9 @@ Dynamic: one CPU row (color button + label) per core, built in a loop — a
 repeater. Strings: `CPU`, `CPU%d`, `%.1f%%`, `not available`,
 `%s (%.1f%%) of %s`, `Cache %s`.
 
-**Gap:** `pixmaps/arrow_mask.svg` and `pixmaps/arrow_overlay.svg` — the arrow
-overlay `gsm_color_button.c` draws on the colour swatch — are not in the port's
-`data/`.
+The arrow overlay `gsm_color_button.c` draws on the colour swatch
+(`pixmaps/arrow_mask.svg`, `arrow_overlay.svg`) is now vendored at
+`data/pixmaps/`.
 
 ---
 
@@ -356,42 +360,52 @@ Security context, cgroup name, systemd unit/session/seat/owner, all read from
 | `data/org.gnome.SystemMonitor.desktop.in.in` | `data/org.gnome.SystemMonitor.desktop` | present |
 | `data/org.gnome.SystemMonitor.metainfo.xml.in.in` | `data/org.gnome.SystemMonitor.metainfo.xml` | present |
 | `data/org.gnome.gnome-system-monitor.policy.in.in` | `data/gnome-system-monitor.policy` | present |
-| `data/gnome-system-monitor-kde.desktop.in.in` | — | missing (KDE variant) |
+| `data/gnome-system-monitor-kde.desktop.in.in` | `data/gnome-system-monitor-kde.desktop` | present |
 | icons (app, symbolic, processes, resources) | `data/icons/` | present |
-| `pixmaps/arrow_mask.svg`, `arrow_overlay.svg` | — | **missing** |
-| `po/` (101 languages) | `po/` (97 `.po` + LINGUAS + POTFILES.in) | present; 4 catalogues short of upstream's LINGUAS |
-| `help/` (user manual, 24 C pages + 21 translations) | — | **missing entirely**; `app.help` opens `help:gnome-system-monitor` |
+| `pixmaps/arrow_mask.svg`, `arrow_overlay.svg` | `data/pixmaps/` | present |
+| `po/` (99 languages) | `po/` (99 `.po` + LINGUAS + POTFILES.in) | present, at parity |
+| `help/` (user manual, 26 C sources + 25 catalogues) | `help/` | present; `make help` merges through itstool as `gnome.yelp()` does |
 | `data/screenshots/` | `data/screenshots/` (4, incl. a new process-properties shot) | present |
 
 ---
 
 ## Summary of gaps, worst first
 
+Closed since the first survey: `prettytable.cpp`, `smooth_refresh.cpp`,
+`generic-window-menu`, the KDE desktop file, `pixmaps/arrow_*.svg`, `help/` and
+the `po/` shortfall.
+
 1. **`win.show-page` action + `<Alt>1/2/3`** — advertised in the shortcuts
-   dialog, not installed. (`window.rb`)
-2. **`generic-window-menu`** — the primary menu does not shrink on the
-   Resources and File Systems pages. (`window.rb`)
-3. **`prettytable.cpp` → `pretty_table.rb`** — no per-process icons anywhere
-   (process table, lsof).
-4. **`smooth_refresh.cpp`** — the "Enable Smooth Refresh" switch is inert.
-5. **Disks device icon + `activate` handler + `GVolumeMonitor`** —
-   (`disks_view.rb`)
-6. **Process properties "More Actions" menu button** — (`process_properties.rb`)
-7. **lsof search toggle, refresh button/action and count-in-title** —
-   (`detail_windows.rb`)
-8. **Set Affinity presentation** — `Adw.Window` + `boxed-list` switch rows, not
-   an alert dialog with check buttons. (`dialogs.rb`)
-9. **CSS classes not carried over** — `numeric` (12 procprop labels, 4 rows, 10
-   process columns, 6 memmap cells, 2 disks cells), `property` (4 procprop
-   rows), `monospace` (4 memmap cells), `icon-dropshadow` (disks icon), `flat`
-   (procprop menu button), `boxed-list` and `background` (affinity), `view`
-   (lsof, memmaps, openfiles windows).
-10. **`GtkShortcutController`s** — `Delete` on End Process; `Escape` on
-    procproperties, setaffinity, memmaps, openfiles, lsof; `<Primary>R` on lsof.
-11. **Search bar key capture widget** — typing does not open search.
-12. **`notify::suspended`** — timers keep running when the window is suspended.
-13. **Preferences polish** — `search-enabled`, 700×700, page icons, the two
-    group descriptions, open-on-current-tab.
-14. **`app.preferences` accelerator** `<Primary>comma`.
-15. **`pixmaps/arrow_*.svg`**, the KDE desktop file, `help/`, and 4 `po/`
-    catalogues.
+   dialog, not installed. Nothing in `lib/` mentions it. (`window.rb`)
+2. **Disks device icon + `activate` handler + `GVolumeMonitor`** — no
+   `Gtk::Image` cell, no `single-click-activate`, no mount-added/removed
+   signals; the page only re-reads on its timer. (`disks_view.rb`)
+3. **Process properties "More Actions" `Gtk.MenuButton`** — no `MenuButton` in
+   the file. (`process_properties.rb`)
+4. **lsof search toggle, refresh button + `lsof.refresh` action, and the
+   match-count window title** — the port pins the search bar open and keeps a
+   static title. (`detail_windows.rb`)
+5. **lsof per-row process icon** — `pretty_table.rb` now exists but the Process
+   cell does not call it. (`detail_windows.rb`)
+6. **Set Affinity presentation** — upstream is an `Adw.Window` with a header
+   bar and a `boxed-list` of `Adw.SwitchRow`; the port is an
+   `Adwaita::AlertDialog` with a `Gtk::Grid` of `Gtk::CheckButton`s
+   (`dialogs.rb:233`). Same behaviour, different control.
+7. **CSS classes not carried over** — the port applies only
+   `destructive-action`, `data-table`, `dim-label`, `view`, `loadgraph`.
+   Missing: `numeric` (12 procprop labels, 4 rows, 10 process columns, 6
+   memmap cells, 2 disks cells), `property` (4 procprop rows), `monospace`
+   (4 memmap cells), `icon-dropshadow` (disks icon), `flat` (procprop menu
+   button), `boxed-list` and `background` (affinity), and `view` on the lsof /
+   memmaps / openfiles windows.
+8. **`GtkShortcutController`s — none exist in the port at all** — `Delete` on
+   End Process; `Escape` on procproperties, setaffinity, memmaps, openfiles,
+   lsof; `<Primary>R` on lsof.
+9. **Search bar key capture widget** — typing on the Processes page does not
+   open search.
+10. **`notify::suspended`** — timers keep running when the window is suspended.
+11. **Preferences polish** — `search-enabled`, 700×700 default size, the three
+    page icons, the two "Information Fields" group descriptions, and opening on
+    the page matching the current tab.
+12. **`app.preferences` accelerator** `<Primary>comma` —
+    `application.rb:46-48` sets only `app.quit`, `app.help` and `window.close`.
