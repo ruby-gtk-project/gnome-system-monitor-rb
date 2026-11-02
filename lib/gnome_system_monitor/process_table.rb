@@ -3,6 +3,7 @@
 require "adwaita"
 
 require_relative "columns"
+require_relative "pretty_table"
 require_relative "proc_fs"
 require_relative "process"
 require_relative "settings"
@@ -175,9 +176,24 @@ module GnomeSystemMonitor
       (pids - processes.keys).each do |pid|
         Process.new.tap do |process|
           process.pid = pid
-          process.load_static(now)&.then { processes[pid] = process }
+
+          if process.load_static(now)
+            pretty_table.set_icon(process)
+            processes[pid] = process
+          end
         end
       end
+    end
+
+    # prettytable.cpp's lookup, done once per process when it first appears —
+    # which is where upstream's proctable does it too.
+    def pretty_table = @pretty_table ||= PrettyTable.new
+
+    # cb_refresh_icons(): an icon name can resolve somewhere else after a
+    # theme change, so every process is looked up again from scratch.
+    def refresh_icons
+      pretty_table.forget
+      processes.each_value { |process| pretty_table.set_icon(process) }
     end
 
     # Recompute who is a root and who is whose child, then move only the rows

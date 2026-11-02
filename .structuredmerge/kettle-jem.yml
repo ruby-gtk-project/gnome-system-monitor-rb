@@ -84,6 +84,8 @@ gemspec:
     include:
       - data/**/*
       - po/**/*
+      # The user manual app.help opens, pages and catalogues both.
+      - help/**/*
 
 # MUST be explicit. Omitted, config_sync injects `licenses: [MIT]` and the next
 # run rewrites the gemspec to MIT and writes MIT.md into a GPL app. Each port

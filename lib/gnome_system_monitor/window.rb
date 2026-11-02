@@ -13,6 +13,7 @@ require_relative "process_table"
 require_relative "process_view"
 require_relative "resources_view"
 require_relative "settings"
+require_relative "smooth_refresh"
 
 module GnomeSystemMonitor
   # interface.cpp: the main window — a view switcher over Resources, Processes
@@ -40,6 +41,9 @@ module GnomeSystemMonitor
     }.freeze
 
     PAGES = %w[resources processes disks].freeze
+
+    # The one page whose primary menu carries the process-list items.
+    PROCESSES_PAGE = "processes"
 
     def initialize(application:)
       @application = application
@@ -206,10 +210,7 @@ module GnomeSystemMonitor
 
     # Refreshing
     def start_timers
-      @process_timer = GLib::Timeout.add((Settings.update_interval * 1000).to_i) do
-        refresh_processes
-        GLib::Source::CONTINUE
-      end
+      start_process_timer
 
       @graph_timer = GLib::Timeout.add((Settings.graph_update_interval * 1000).to_i) do
         resources_view.update
@@ -226,8 +227,31 @@ module GnomeSystemMonitor
     # drives rather than wait for the next tick of the old one.
     def restart_timers
       stop_timers
+      smooth_refresh.reset
       start_timers
     end
+
+    # The process list ticks at whatever Smooth Refresh has settled on, which
+    # is the configured interval until it decides otherwise.
+    def start_process_timer
+      @process_timer = GLib::Timeout.add(smooth_refresh.interval) do
+        refresh_processes
+        retune_process_timer
+      end
+    end
+
+    # A GLib timeout's period cannot be changed once it is running, so a new
+    # interval means this source stands down and a fresh one takes over.
+    def retune_process_timer
+      if smooth_refresh.get
+        start_process_timer
+        GLib::Source::REMOVE
+      else
+        GLib::Source::CONTINUE
+      end
+    end
+
+    def smooth_refresh = @smooth_refresh ||= SmoothRefresh.new
 
     def stop_timers
       [@process_timer, @graph_timer, @disks_timer].compact.each { |id| GLib::Source.remove(id) }
@@ -243,7 +267,22 @@ module GnomeSystemMonitor
 
     def on_page_changed
       Settings[Settings::CURRENT_TAB] = stack.visible_child_name
+      apply_page_menu
       update_action_state
+    end
+
+    # The two menus of menus.ui: process-window-menu while the Processes page
+    # is showing, generic-window-menu on the other two.
+    def apply_page_menu
+      menu_button.menu_model = page_menu
+    end
+
+    def page_menu
+      if stack.visible_child_name == PROCESSES_PAGE
+        main_menu
+      else
+        generic_menu
+      end
     end
 
     # Queued rather than run on the spot. Both callers are signals the model
@@ -267,7 +306,7 @@ module GnomeSystemMonitor
     # per-process actions are insensitive until then.
     def apply_action_state
       process_view.selected.then do |selected|
-        action_bar_revealer.reveal_child = !selected.empty? && stack.visible_child_name == "processes"
+        action_bar_revealer.reveal_child = !selected.empty? && stack.visible_child_name == PROCESSES_PAGE
 
         %w[
           process-properties memory-maps open-files set-affinity
@@ -422,6 +461,7 @@ module GnomeSystemMonitor
       end
 
       stack.visible_child_name = current_tab
+      apply_page_menu
 
       window.signal_connect("close-request") do
         save_window_state
@@ -486,7 +526,6 @@ module GnomeSystemMonitor
         button.tooltip_text = _("Main Menu")
         button.icon_name = "open-menu-symbolic"
         button.primary = true
-        button.menu_model = main_menu
       end
     end
 
@@ -665,24 +704,33 @@ module GnomeSystemMonitor
         )
 
         menu.append_section(nil, section { |s| s.append(_("Show _Dependencies"), "win.show-dependencies") })
+        menu.append_section(nil, open_files_section)
+        menu.append_section(nil, application_section)
+      end
+    end
 
-        menu.append_section(
-          nil,
-          section do |s|
-                    # Menu item to Open Search for Open Files dialog
-                    s.append(_("_Search for Open Files"), "app.lsof")
-                  end,
-        )
+    # menus.ui's generic-window-menu, the primary menu for the Resources and
+    # File Systems pages: there is no process list on either, so the refresh,
+    # the which-processes choice and the dependency toggle all go, and what is
+    # left is the two sections both menus share.
+    def generic_menu
+      @generic_menu ||= Gio::Menu.new.tap do |menu|
+        menu.append_section(nil, open_files_section)
+        menu.append_section(nil, application_section)
+      end
+    end
 
-        menu.append_section(
-          nil,
-          section do |s|
-                    s.append(_("_Preferences"), "app.preferences")
-                    s.append(_("_Help"), "app.help")
-                    s.append(_("_Keyboard Shortcuts"), "win.shortcuts")
-                    s.append(_("_About System Monitor"), "win.about")
-                  end,
-        )
+    def open_files_section
+      # Menu item to Open Search for Open Files dialog
+      section { |s| s.append(_("_Search for Open Files"), "app.lsof") }
+    end
+
+    def application_section
+      section do |s|
+        s.append(_("_Preferences"), "app.preferences")
+        s.append(_("_Help"), "app.help")
+        s.append(_("_Keyboard Shortcuts"), "win.shortcuts")
+        s.append(_("_About System Monitor"), "win.about")
       end
     end
 

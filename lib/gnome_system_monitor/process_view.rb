@@ -5,6 +5,7 @@ require "adwaita"
 require_relative "columns"
 require_relative "list_refresh"
 require_relative "i18n"
+require_relative "pretty_table"
 require_relative "process_table"
 require_relative "settings"
 require_relative "units"
@@ -55,6 +56,7 @@ module GnomeSystemMonitor
         sorter_model.signal_connect("items-changed") { on_selection_changed.call }
       end
 
+      watch_icon_theme
       restore_columns
 
       scrolled_window
@@ -90,6 +92,20 @@ module GnomeSystemMonitor
     def refresh_headers
       announce_rows(render_text)
       refresh_totals
+    end
+
+    # cb_refresh_icons(): the icon a name resolves to can change with the
+    # theme, so every process is looked up again and every row rebound to
+    # pick the new ones up.
+    def watch_icon_theme
+      Gdk::Display.default&.then do |display|
+        Gtk::IconTheme.get_for_display(display).signal_connect("changed") { refresh_icons }
+      end
+    end
+
+    def refresh_icons
+      table.refresh_icons
+      announce_rows(table.processes.each_value.map(&:key).to_set)
     end
 
     # Returns the keys of the processes whose text actually moved, which is
@@ -261,7 +277,12 @@ module GnomeSystemMonitor
     def setup_name(item)
       item.child = Gtk::TreeExpander.new.tap do |expander|
         expander.child = Gtk::Box.new(:horizontal, 6).tap do |box|
-          box.append(Gtk::Image.new.tap { |image| image.icon_name = "application-x-executable-symbolic" })
+          box.append(
+            Gtk::Image.new.tap do |image|
+                        image.pixel_size = PrettyTable::APP_ICON_SIZE
+                        image.gicon = Gio::ThemedIcon.new(PrettyTable::FALLBACK_ICON)
+                      end,
+          )
           box.append(
             Gtk::Label.new.tap do |label|
                         label.xalign = 0
@@ -279,9 +300,13 @@ module GnomeSystemMonitor
       item.item.then do |row|
         item.child.list_row = row
 
-        item.child.child.last_child.tap do |label|
-          label.label = row.item.name
-          label.tooltip_text = row.item.tooltip
+        item.child.child.tap do |box|
+          box.first_child.gicon = row.item.icon
+
+          box.last_child.tap do |label|
+            label.label = row.item.name
+            label.tooltip_text = row.item.tooltip
+          end
         end
       end
     end

@@ -20,6 +20,19 @@ Please file a bug if you notice a violation of semantic versioning.
 
 ### Added
 
+- Per-process icons in the process table, ported from `src/prettytable.cpp` and
+  `src/defaulttable.h`: the owning application's icon, the icon theme under the
+  process name, the table of well-known commands, a kernel-thread icon and a
+  plain executable fallback, re-resolved when the icon theme changes.
+- Adaptive process-list refresh behind the "Enable Smooth Refresh" switch,
+  ported from `src/smooth_refresh.cpp`.
+- The reduced primary menu (`generic-window-menu` of `data/menus.ui`) on the
+  Resources and File Systems pages.
+- The KDE desktop entry, `data/gnome-system-monitor-kde.desktop`.
+- The colour-button arrow overlay assets in `data/pixmaps/`.
+- The user manual `app.help` opens: upstream's help pages, their translations,
+  and `make help` to merge the two with itstool.
+
 ### Changed
 
 ### Deprecated
@@ -27,6 +40,9 @@ Please file a bug if you notice a violation of semantic versioning.
 ### Removed
 
 ### Fixed
+
+- `make run` and `make install` looked for the executables under `bin/`, where
+  they have not lived since the gem packaging moved them to `exe/`.
 
 ### Security
 

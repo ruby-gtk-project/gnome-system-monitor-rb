@@ -138,6 +138,12 @@ module GnomeSystemMonitor
       self.uid = ProcFs.uid(pid).to_i
       self.user = ProcFs.user_name(uid)
       self.security_context = ProcFs.security_context(pid)
+
+      # Read here as well as on every tick because the icon lookup needs it:
+      # a flatpak is recognised by the app id in its cgroup, and the icon is
+      # resolved the moment the process is first seen. Upstream's ProcInfo
+      # constructor loads the cgroup for the same reason.
+      self.cgroup_name = ProcFs.cgroup_name(pid)
       self.start_time = now.boot_time + (stat[:start_ticks] / ProcFs::CLOCK_TICKS)
       self.cpu_time = (stat[:utime] + stat[:stime]) * 100 / ProcFs::CLOCK_TICKS
 

@@ -30,6 +30,10 @@
             appstream
             desktop-file-utils
             gettext
+            # `make help` merges the help catalogues into the C pages, and
+            # `make test` checks those pages parse.
+            itstool
+            libxml2
             openssl
 
             # The ruby-gnome extconfs resolve Requires.private out of the .pc
