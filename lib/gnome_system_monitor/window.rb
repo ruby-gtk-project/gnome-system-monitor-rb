@@ -42,6 +42,14 @@ module GnomeSystemMonitor
 
     PAGES = %w[resources processes disks].freeze
 
+    # application.cpp's three detailed accelerators for the show-page radio
+    # action: Alt and the page's position in the view switcher.
+    PAGE_ACCELERATORS = {
+      "resources" => ["<Alt>1"],
+      "processes" => ["<Alt>2"],
+      "disks"     => ["<Alt>3"],
+    }.freeze
+
     # The one page whose primary menu carries the process-list items.
     PROCESSES_PAGE = "processes"
 
@@ -71,6 +79,7 @@ module GnomeSystemMonitor
 
           search_bar.tap do |bar|
             bar.child = search_entry
+            bar.connect_entry(search_entry)
             search_button.bind_property(
               "active",
               bar,
@@ -118,6 +127,8 @@ module GnomeSystemMonitor
             process_action_bar.tap do |bar|
               bar.pack_start(end_process_button)
               bar.pack_end(properties_button)
+
+              end_process_button.add_controller(delete_shortcut)
             end
           end
 
@@ -142,10 +153,33 @@ module GnomeSystemMonitor
       simple_actions.each_value { |action| window.add_action(action) }
       window.add_action(dependencies_action)
       window.add_action(whose_processes_action)
+      window.add_action(show_page_action)
 
       ACCELERATORS.each do |name, accelerators|
         if !accelerators.empty?
           application.set_accels_for_action(name, accelerators)
+        end
+      end
+
+      PAGE_ACCELERATORS.each do |page, accelerators|
+        application.set_accels_for_action("win.show-page('#{page}')", accelerators)
+      end
+    end
+
+    # interface.cpp's show-page entry: a string radio action whose state is
+    # the visible page, so <Alt>1/2/3 and the view switcher drive the same
+    # thing and the menu could show which page is current.
+    def show_page_action
+      @show_page_action ||= Gio::SimpleAction.new(
+        "show-page",
+        GLib::VariantType.new("s"),
+        GLib::Variant.new(current_tab, "s"),
+      ).tap do |a|
+        a.signal_connect("activate") { |action, parameter| action.change_state(parameter) }
+
+        a.signal_connect("change-state") do |action, state|
+          action.set_state(state)
+          stack.visible_child_name = state.get_string
         end
       end
     end
@@ -209,17 +243,24 @@ module GnomeSystemMonitor
     end
 
     # Refreshing
+    #
+    # Guarded so that waking from suspend cannot leave two sets of timers
+    # running: notify::suspended fires on every state change, including ones
+    # where nothing was stopped.
     def start_timers
-      start_process_timer
+      if !@timers_running
+        @timers_running = true
+        start_process_timer
 
-      @graph_timer = GLib::Timeout.add((Settings.graph_update_interval * 1000).to_i) do
-        resources_view.update
-        GLib::Source::CONTINUE
-      end
+        @graph_timer = GLib::Timeout.add((Settings.graph_update_interval * 1000).to_i) do
+          resources_view.update
+          GLib::Source::CONTINUE
+        end
 
-      @disks_timer = GLib::Timeout.add((Settings.disks_interval * 1000).to_i) do
-        disks_view.refresh
-        GLib::Source::CONTINUE
+        @disks_timer = GLib::Timeout.add((Settings.disks_interval * 1000).to_i) do
+          disks_view.refresh
+          GLib::Source::CONTINUE
+        end
       end
     end
 
@@ -254,8 +295,20 @@ module GnomeSystemMonitor
     def smooth_refresh = @smooth_refresh ||= SmoothRefresh.new
 
     def stop_timers
+      @timers_running = false
       [@process_timer, @graph_timer, @disks_timer].compact.each { |id| GLib::Source.remove(id) }
       @process_timer = @graph_timer = @disks_timer = nil
+    end
+
+    # cb_main_window_suspended(): a window the compositor has told us is not
+    # visible is one nobody is reading, so it stops sampling until it comes
+    # back rather than waking the machine once a second to redraw nothing.
+    def on_suspended_changed
+      if window.suspended?
+        stop_timers
+      else
+        restart_timers
+      end
     end
 
     def refresh_processes
@@ -265,10 +318,30 @@ module GnomeSystemMonitor
       detail_windows.each(&:update)
     end
 
+    # update_page_activities(): the page decides which primary menu the button
+    # shows, whether the search affordances are there at all, and what the
+    # show-page radio action reports as its state.
     def on_page_changed
       Settings[Settings::CURRENT_TAB] = stack.visible_child_name
+      show_page_action.set_state(GLib::Variant.new(stack.visible_child_name, "s"))
       apply_page_menu
+      apply_search_capture
       update_action_state
+    end
+
+    # gtk_search_bar_set_key_capture_widget(): typing anywhere in the window
+    # opens the search bar and lands in the entry — but only on the Processes
+    # page, which is the only page with anything to search. The other two
+    # leave the key presses alone, and hide the search button with them.
+    def apply_search_capture
+      (stack.visible_child_name == PROCESSES_PAGE).then do |searchable|
+        search_bar.key_capture_widget = searchable ? window : nil
+        search_button.visible = searchable
+
+        if !searchable
+          search_button.active = false
+        end
+      end
     end
 
     # The two menus of menus.ui: process-window-menu while the Processes page
@@ -426,12 +499,23 @@ module GnomeSystemMonitor
       end
     end
 
+    # One Search for Open Files window, as upstream keeps one, so reopening it
+    # shows what is already there. It stays out of detail_windows: scanning
+    # every process's open files is far too expensive to do on the process
+    # tick, which is why upstream refreshes it only on demand. It borrows the
+    # process table's icon cache rather than building a second one.
     def open_search_open_files
-      SearchOpenFiles.new.present(window)
+      search_open_files.present(window)
     end
 
+    def search_open_files
+      @search_open_files ||= SearchOpenFiles.new(pretty_table: table.pretty_table)
+    end
+
+    # switch_preferences_page(): the dialog opens on the page that matches the
+    # tab the window is showing, since that is what the user was looking at.
     def open_preferences
-      preferences.present(window)
+      preferences.present(window, stack.visible_child_name)
     end
 
     def preferences
@@ -462,6 +546,9 @@ module GnomeSystemMonitor
 
       stack.visible_child_name = current_tab
       apply_page_menu
+      apply_search_capture
+
+      window.signal_connect("notify::suspended") { on_suspended_changed }
 
       window.signal_connect("close-request") do
         save_window_state
@@ -569,6 +656,21 @@ module GnomeSystemMonitor
         button.receives_default = true
         button.action_name = "win.send-signal-term"
         button.add_css_class("destructive-action")
+      end
+    end
+
+    # interface.ui hangs a managed shortcut controller off the End Process
+    # button, so Delete ends the selected process whenever that button is
+    # showing — which is exactly when something is selected.
+    def delete_shortcut
+      @delete_shortcut ||= Gtk::ShortcutController.new.tap do |controller|
+        controller.scope = :managed
+        controller.add_shortcut(
+          Gtk::Shortcut.new(
+            Gtk::ShortcutTrigger.parse_string("Delete"),
+            Gtk::NamedAction.new("win.send-signal-term"),
+          ),
+        )
       end
     end
 

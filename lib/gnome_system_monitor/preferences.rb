@@ -43,14 +43,33 @@ module GnomeSystemMonitor
       end
     end
 
-    def present(parent)
+    # The page to open on is the window's current tab, named the same way the
+    # view stack names it; anything else leaves the dialog on its first page.
+    def present(parent, page_name = nil)
       build
+      pages[page_name].then do |page|
+        if page
+          dialog.visible_page = page
+        end
+      end
+
       dialog.present(parent)
+    end
+
+    def pages
+      @pages ||= {
+        "resources" => resources_page,
+        "processes" => processes_page,
+        "disks"     => disks_page,
+      }
     end
 
     def dialog
       @dialog ||= Adwaita::PreferencesDialog.new.tap do |d|
         d.title = _("Preferences")
+        d.search_enabled = true
+        d.content_width = 700
+        d.content_height = 700
       end
     end
 
@@ -58,6 +77,7 @@ module GnomeSystemMonitor
     def resources_page
       @resources_page ||= Adwaita::PreferencesPage.new.tap do |page|
         page.title = _("Resources")
+        page.icon_name = "resources-symbolic"
       end
     end
 
@@ -97,6 +117,7 @@ module GnomeSystemMonitor
     def processes_page
       @processes_page ||= Adwaita::PreferencesPage.new.tap do |page|
         page.title = _("Processes")
+        page.icon_name = "processes-symbolic"
       end
     end
 
@@ -121,6 +142,7 @@ module GnomeSystemMonitor
     def process_fields_group
       @process_fields_group ||= Adwaita::PreferencesGroup.new.tap do |group|
         group.title = _("Information Fields")
+        group.description = _("Process information shown in list")
 
         Columns.visible.each do |column|
           group.add(process_field_row(column))
@@ -144,6 +166,7 @@ module GnomeSystemMonitor
     def disks_page
       @disks_page ||= Adwaita::PreferencesPage.new.tap do |page|
         page.title = _("File Systems")
+        page.icon_name = "drive-harddisk-symbolic"
       end
     end
 
@@ -163,6 +186,7 @@ module GnomeSystemMonitor
     def disks_fields_group
       @disks_fields_group ||= Adwaita::PreferencesGroup.new.tap do |group|
         group.title = _("Information Fields")
+        group.description = _("File system information shown in list")
 
         disks_view.columns.each do |column|
           group.add(disks_field_row(column))

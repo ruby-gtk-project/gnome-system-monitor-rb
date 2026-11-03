@@ -45,6 +45,7 @@ module GnomeSystemMonitor
 
         app.set_accels_for_action("app.quit", ["<Control>Q"])
         app.set_accels_for_action("app.help", ["F1"])
+        app.set_accels_for_action("app.preferences", ["<Control>comma"])
         app.set_accels_for_action("window.close", ["<Control>W"])
       end
     end
