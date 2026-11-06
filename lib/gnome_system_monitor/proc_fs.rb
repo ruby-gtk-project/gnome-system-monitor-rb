@@ -5,10 +5,14 @@ require "etc"
 module GnomeSystemMonitor
   # Everything the process table needs, read straight out of /proc.
   #
-  # Upstream gets this from libgtop. There is no Ruby binding for libgtop, and
-  # on Linux libgtop is itself a /proc reader — so the port reads /proc
-  # directly and keeps libgtop's field names, units and edge cases (a process
-  # that exits mid-read is skipped, not fatal).
+  # Upstream gets this from libgtop. The `libgtop` gem loads, but its
+  # functions are not callable: libgtop's GI records are lowercase
+  # (`glibtop_proc_mem`, …) and ruby-gnome resolves argument types by the raw
+  # GI name, so every call dies — `GTop.glibtop_get_mem(...)` raises
+  # `NameError: wrong constant name glibtop_mem`. On Linux libgtop is itself a
+  # /proc reader, so the port reads /proc directly and keeps libgtop's field
+  # names, units and edge cases (a process that exits mid-read is skipped,
+  # not fatal).
   module ProcFs
     # The glibtop_proc_state values, kept as-is: the status column sorts on
     # this number, so the order has to be upstream's.

@@ -18,6 +18,13 @@ Gem::Specification.new do |spec|
   spec.licenses = ["GPL-2.0-or-later"]
   spec.required_ruby_version = ">= 3.4"
 
+  # Runtime toolkit: GTK4 widgets, Libadwaita widgets and the GLib/GObject
+  # layer both of those bindings sit on.
+  spec.add_dependency("adwaita", "~> 4.3")
+  spec.add_dependency("glib2", "~> 4.3")
+  spec.add_dependency("gtk4", "~> 4.3")
+  spec.add_dependency("gettext", "~> 3.4")
+
   # Linux distros often package gems and securely certify them independent
   #   of the official RubyGem certification process. Allowed via ENV["SKIP_GEM_SIGNING"]
   # Hence, only enable signing if `SKIP_GEM_SIGNING` is not set in ENV.

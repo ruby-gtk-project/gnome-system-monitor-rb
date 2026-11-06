@@ -16,9 +16,11 @@
             ruby_3_4
             bundler
             bundix
+            xvfb-run
             atk
             gtk4
             libadwaita
+            libgtop
             gobject-introspection
             glib
             cairo
@@ -72,7 +74,7 @@
           shellHook = ''
             export BUNDLE_PATH="$PWD/vendor/bundle"
             export BUNDLE_BUILD__GTK4="--use-system-libraries"
-            export GI_TYPELIB_PATH="${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+            export GI_TYPELIB_PATH="${pkgs.gtk4}/lib/girepository-1.0:${pkgs.libadwaita}/lib/girepository-1.0:${pkgs.libgtop}/lib/girepository-1.0''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
           '';
         };
       }
