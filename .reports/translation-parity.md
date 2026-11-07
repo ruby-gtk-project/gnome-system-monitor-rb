@@ -4,6 +4,7 @@
 |---|---|
 | Upstream | `main` @ `ebfa2af8` |
 | Port | `ruby` @ `844ed8ec` |
+| Port | `ruby` @ `57971f35` (re-checked this round; not re-run from scratch — see note below) |
 | Domain | `gnome-system-monitor` |
 | Upstream messages | 374 |
 | Ported | **334** |
@@ -15,6 +16,19 @@
 | Upstream languages | 99 `.po` files, 29,735 translated, 1,739 untranslated, 247 fuzzy |
 | Languages shipped by the port | 99 (file set matches, not independently verified string-for-string) |
 | Unresolved markers (upstream) | 2 — `src/proctable.cpp:435`, a `switch` on `titles[i]` whose literal strings were not resolved by the census; carried as a scanner lead, not closed here |
+
+**Note added this round**: the only commits between the prior census and
+the current tip (`b921d443`, `83589698`, `57971f35`) touch
+`.reports/`, `column-view-persister.c`'s port, and the devShell/two bugfixes
+respectively — none add, remove, or reword a user-facing string in `lib/`.
+The full catalogue script was not re-run this round for budget reasons; the
+numbers and gap list below are carried forward as still current on that
+basis, not re-verified byte-for-byte. Group A's premise is now partly
+stale, though: `win.show-page`'s accessible descriptions and the properties
+`MenuButton` exist now (`component-parity.md`), so a couple of Group A rows
+may have moved into Group B (string exists, differs) rather than staying
+"component not built." Not re-triaged row-by-row this round — flagged as a
+follow-up rather than silently left under the old label.
 
 Generated with `.claude/skills/translation-parity/scripts/catalogue.rb`
 against `/tmp/claude-1001/upstream-gsm` (worktree of `origin/main`) and the

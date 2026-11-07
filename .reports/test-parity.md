@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | Upstream | `main` @ `ebfa2af8` |
-| Port | `ruby` @ `844ed8ec` |
+| Port | `ruby` @ `57971f35` |
 | Upstream tests | 3 |
-| Ported | **0** |
-| Gaps | **3** |
-| Test command | `make test` (declared) — **does not complete; see below** |
+| Ported | **0** (unchanged this round) |
+| Gaps | **3** cgroup tests (unchanged), plus a broken/empty `rspec` entry point (new this round) |
+| Test command | `make test` (declared) — **now runs; 3/4 files pass, 1 inconclusive; see below** |
 
 ## Step 1 — upstream census
 
@@ -55,50 +55,64 @@ ported test, and per the skill there is no partial-credit state for this.
 probably matches; that is exactly the gap the skill exists to catch — nobody
 has written down that it does, and "probably" is not census output.
 
-## Step 3 — is there a suite to run at all?
+## Step 3 — is there a suite to run at all? (re-run this round, devShell now fixed)
 
-`make test` (the declared command, `Makefile:31-36`) is:
+The prior round's blocker — `bundle install` failing outright, documented in
+the prior `runtime-gate.md` — is fixed as of `57971f35` (see
+`.reports/runtime-gate.md`, "Confirmed independently"). Re-run directly in
+this audit, under `nix develop --command xvfb-run -a ruby <file>`:
 
-```
-bundle exec ruby test/test_units.rb
-bundle exec ruby test/test_procfs.rb
-env -u DISPLAY -u WAYLAND_DISPLAY bundle exec ruby test/test_binding_limits.rb
-env -u DISPLAY -u WAYLAND_DISPLAY bundle exec ruby test/drive_window.rb
-```
+- `test/test_units.rb` — **runs clean, 29/29 checks pass** (no GTK import;
+  not the cgroup tests, see census above).
+- `test/test_procfs.rb` — **runs clean, all checks pass** (confirmed this
+  round; the prior round's `LoadError` on `gio2` is gone now that the
+  binding gems actually install).
+- `test/test_binding_limits.rb` — **inconclusive this round.** The
+  no-variant (default) invocation reliably fails for a documented
+  environment reason (`.reports/binding-gaps.md`: it force-deletes
+  `DISPLAY`/`WAYLAND_DISPLAY` before forking, and this nixpkgs `gtk4` has no
+  broadway backend). Running the `safe` variant directly under `xvfb-run`
+  to check that documented claim did not finish inside a 120s timeout in
+  this sandbox — killed mid-run, not confirmed pass or fail. Flagged, not
+  asserted either way.
+- `test/drive_window.rb` — **runs, 30/30 checks pass, `DRIVE OK`**,
+  independently reproduced (`.reports/runtime-gate.md`). 3 of its 12
+  screenshot captures silently fail to render (same report) without
+  affecting this pass/fail count.
 
-Every line is prefixed `bundle exec`, and `bundle install` fails outright on
-this project's own `nix develop` shell (Ruby-version conflict introduced by
-the `kettle-family` packaging gem — full detail in
-`.reports/runtime-gate.md`). **`make test` has not completed successfully in
-this audit and could not be made to.** Run without `bundle exec` directly:
+**New this round: the project's `rspec` entry point is a separate, still-
+broken gap the Makefile-based `make test` doesn't even touch.** The devShell
+banner advertises `ruby -e '... RSpec::Core::Runner.run(...)'` as how to
+"run the specs." Run as given, it produces `0 examples, 0 failures, 2
+errors occurred outside of examples` — `spec/spec_helper.rb:23` requires
+`kettle/test/rspec`, which is not installed, so the helper can't even load;
+and independent of that, **`spec/` holds no `*_spec.rb` file at all**, only
+`spec_helper.rb` and a `README.md`. Even a fixed helper would run zero
+examples. This means **no component in this port has ever been covered by
+an example-based (`rspec`) test** — only by the three plain-Ruby scripts
+above and the hand-rolled `drive_window.rb`. That is a real, currently-true
+gap, not inherited language from the prior round.
 
-- `test/test_units.rb` — runs clean, 29/29 checks pass (no GTK import; not
-  the cgroup tests, see census below).
-- `test/test_procfs.rb` — fails to load: `require "gio2"`
-  (`system_stats.rb:3`) raises `LoadError`, because no GTK/GIO binding gem is
-  installed at all. **This is the file that would carry the cgroup tests if
-  they existed, and it cannot even be parsed-and-required, let alone run.**
-- `test/test_binding_limits.rb`, `test/drive_window.rb` — not run; both
-  `require "gtk4"`/`"adwaita"` directly and hit the same `LoadError`.
+**A suite that has never been executed is still a gap where it applies:**
+`test/test_binding_limits.rb`'s specific environment-dependent claim is
+unconfirmed this round (inconclusive, not failing), and the `rspec` entry
+point has 0 examples full stop. The cgroup-test gap below (upstream's only
+real tests) is **unchanged** — nothing ported them this round either.
 
-**A suite that has never been executed is a gap, stated plainly: three of
-this port's four test files have never once completed a run in this
-environment**, and the fourth (`test_units.rb`) covers none of the three
-upstream tests this ledger owes. "The suite is green" cannot be claimed for
-any file that imports GTK, because none of them have ever finished running.
+## Step 4 — what's extra (re-counted against passing runs this round)
 
-## Step 4 — what's extra
-
-None of this is parity work, and none of it is free of the runtime gate
-above — every count below is "lines of code that exist," not "checks that
-have passed," except where marked:
-
-- `test/test_units.rb` — 29 checks, **confirmed passing**, no GTK.
-- `test/test_procfs.rb` — 52 `check(...)` sites, **never executed**
-  (`LoadError` on `require "gio2"`).
-- `test/test_binding_limits.rb` — 1 `check(...)` site, **never executed**.
-- `test/drive_window.rb` — 65 `check(...)` sites driving the live window,
-  **never executed**.
+- `test/test_units.rb` — 29 checks, **confirmed passing**.
+- `test/test_procfs.rb` — 52 `check(...)` sites, **confirmed passing this
+  round** (previously never-executed; devShell fix changes this).
+- `test/test_binding_limits.rb` — 1 `check(...)` site, **inconclusive this
+  round** (timed out before completing under `xvfb-run safe`).
+- `test/drive_window.rb` — 30 `check(...)` sites driving the live window,
+  **confirmed passing, `DRIVE OK`** (3 of 12 screenshots silently fail to
+  render; does not affect the check count).
+- `spec/` (rspec) — 0 spec files, 0 examples, helper fails to load. **Not a
+  parity gap in the ledger-row sense (upstream has no rspec suite to port
+  against), but a real gap in the port's own test tooling worth stating
+  plainly rather than leaving silent.**
 
 ## Rules this ledger follows
 

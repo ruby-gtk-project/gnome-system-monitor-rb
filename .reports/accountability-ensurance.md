@@ -1,5 +1,37 @@
 # Accountability ensurance — gnome-system-monitor-rb
 
+**Re-run this round against `ruby` @ `57971f35`** (prior round: `844ed8ec`).
+The devShell fix (`57971f35`) made the runtime gate go green
+(`.reports/runtime-gate.md`: `30/30 checks passed, DRIVE OK`), which closes
+some of the risk the prior round's verdict named — most behavior claims in
+this port are now backed by at least one real execution — but it also
+surfaces a concrete instance of exactly the risk this skill exists to
+flag, found fresh this round:
+
+## New finding: the project's own `rspec` entry point is a false-green
+risk realized, not just a hypothetical one
+
+The devShell banner names a third way to verify the port —
+`ruby -e '... RSpec::Core::Runner.run(...)'` — alongside running and
+driving the app. Run as given, it cannot even load (`spec_helper.rb`
+requires the unavailable `kettle/test/rspec`) and `spec/` contains zero
+`*_spec.rb` files regardless. Nothing in this repository's own prose claims
+the rspec suite passes — so this is not yet a false "done" stated
+anywhere — but the prior round's accountability verdict warned, in the
+abstract, that "if a future agent runs `make test` ... and stops reading
+output, they could report the suite green." This round's own re-run of the
+devShell found the concrete version of that risk already waiting in a
+second entry point the Makefile doesn't even cover: a reader who tries
+"run the specs" per the banner, sees `rspec` exit non-zero with
+`LoadError`, and assumes that is just one broken test, would still be
+wrong in a more specific way — there is no spec in that directory to be
+broken, 0 examples is the honest ceiling regardless of the `LoadError`.
+Recorded here because a `0 examples, 0 failures` summary line reads as
+"nothing to worry about" to anyone not reading the "errors occurred
+outside of examples" line immediately above it.
+
+## Scanner re-run
+
 Ran `.claude/skills/accountability-ensurance/scripts/find-excuses.sh` over
 `lib/`, `exe/`, and `.reports/` (the port has no `PORTING.md`, `FINDINGS.md`,
 `COMPONENT_PARITY.md`, `TEST_PARITY.md` or `TRANSLATION_PARITY.md` at its
@@ -97,10 +129,29 @@ missing."
 
 ## Verdict
 
-One real hit, rewritten above. No label laundering, no "n/a," no "out of
-scope" language found elsewhere in `lib/`, `exe/`, or `.reports/`. The larger
-accountability risk in this port isn't excuse-writing — it's the absence of
-the standing ledgers (`PORTING.md` and friends) that would make the next
-agent's job of re-checking any of this cheap, combined with a runtime gate
-broken badly enough (`.reports/runtime-gate.md`) that no claim about
-behavior, anywhere in this port, has ever been backed by a single execution.
+No new scanner hits this round beyond the one rewritten above (re-run of
+the lexical scan against the current tip found nothing new); the
+`system_stats.rb:13` comment is unchanged and the rewrite still applies.
+No label laundering, no "n/a," no "out of scope" language found elsewhere
+in `lib/`, `exe/`, or `.reports/`. PORTING.md and friends are still absent.
+
+**What's different this round**: the prior round's largest-scale finding —
+a runtime gate broken badly enough that no behavior claim in this port had
+ever been backed by a single execution — is no longer true. The devShell
+fix (`57971f35`) makes `drive_window.rb` and most of the plain-Ruby test
+files actually run, and this audit independently reproduced that
+(`.reports/runtime-gate.md`). That is real progress, stated plainly rather
+than undersold.
+
+But the same failure mode this skill watches for showed up in a new place:
+the devShell's own banner names `rspec` as a verification path, and that
+path produces `0 examples` from an empty `spec/` directory behind a
+`LoadError`. Nobody in this repository currently claims that suite is
+green — so there is no live violation to rewrite — but it is the live
+instance of the abstract risk the prior round named, and it's recorded here
+rather than left for a future agent to discover the hard way. The honest
+framing for this round: the loudest accountability risk moved from "the
+whole gate is dark" to "one real test command the project itself advertises
+quietly runs nothing," which is a smaller, more specific, and more durable
+risk — exactly the kind that survives a round where the big gate gets
+fixed and nobody re-checks the smaller one next to it.

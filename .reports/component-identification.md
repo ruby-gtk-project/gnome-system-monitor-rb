@@ -13,10 +13,25 @@ against the port's `lib/gnome_system_monitor/*.rb` files), built per the
 authoritative tree, then the `.cpp`/`.c` siblings read for actions,
 accelerators, dynamic rows and runtime CSS the builder files don't show. It
 is dated at commit `1204f8bb` and was re-checked against the current tip
-(`844ed8ec`) for this audit: the only commit since is
-`844ed8ec "Wire the GTK4/Adwaita/GLib/gettext binding gems in properly"`,
-which touches `Gemfile`/`Gemfile.lock`/`gemset.nix`, not `lib/`. **The
-inventory's widget/CSS/signal content is unchanged and still current.**
+(`57971f35`) for this audit. Commits since the prior round's check
+(`844ed8ec`) are `b921d443` (`.reports/` only), `83589698` (ports
+`src/column-view-persister.c`'s drag-reorder persistence -- a real `lib/`
+addition the existing inventory predates and does not list), and
+`57971f35` (devShell fix plus two bug fixes, not new widgets). **The
+inventory's widget/CSS/signal content is current except for the
+column-view-persister addition, added as a named gap below rather than
+silently left unlisted.**
+
+### Gap added this round: column-view-persister.c's port is unlisted anywhere
+
+`83589698` ported `src/column-view-persister.c` into the port, but
+`.reports/component-inventory.md` predates that commit and has no row for
+it, and no step in `test/drive_window.rb` exercises column reordering at
+all (confirmed against the driven-step list in `.reports/test-parity.md`).
+This is a real component with zero verification coverage of any kind this
+round -- not re-confirmed present-and-correct, not driven, not
+screenshotted -- simply absent from every ledger. Named here rather than
+letting its absence from the inventory read as done.
 
 This audit does not re-derive that inventory from scratch (it would reproduce
 the same 411-line document). Instead it:

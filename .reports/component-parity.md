@@ -3,36 +3,73 @@
 | | |
 |---|---|
 | Upstream | `main` @ `ebfa2af8` |
-| Port | `ruby` @ `844ed8ec` |
-| Units with full (4-axis) parity, driven and screenshotted | **0 / ~17** |
+| Port | `ruby` @ `57971f35` |
+| Units with full (4-axis) parity, driven and screenshotted | **~7 / ~17**, see below |
 | Units with parity on count+CSS+signal/action axes by reading only | most, with named gaps below |
-| Steps 4 & 5 (render, drive) performed by this audit | **no — could not run; see `runtime-gate.md`** |
+| Steps 4 & 5 (render, drive) performed by this audit | **partially — the devShell is fixed and `drive_window.rb` now runs; see `runtime-gate.md`** |
 
-No unit in this port can be called at parity by this skill's own definition,
-because Steps 4 and 5 — confirm the styling actually renders, confirm the
-behaviour actually fires, by running the app and driving it — were not
-performable at all. `bundle install` fails outright on this project's own dev
-shell (`.reports/runtime-gate.md`), so no widget, dialog, signal or action in
-this port has been exercised by code, not even once, since the gems that
-would load them aren't installed. A unit that passes a source-reading
-comparison of count/CSS/signal and still has a ✗ on "driven" is, per the
-skill's own ledger example, not a pass — "A unit has parity when every row
-says parity... and the driven line has no ✗. One gap is not a pass with a
-note." Every unit here has that ✗, so the honest top-line number is 0, not
-the number the per-axis table below might suggest at a glance.
+## Update this round: the devShell fix changes the picture, and reopens 3 items
 
-## Gaps found by reading (the only axis available), worst first
+`57971f35` fixed the broken devShell the prior round's `runtime-gate.md`
+documented, and `test/drive_window.rb` now runs for real: `30/30 checks
+passed, DRIVE OK`, reproduced independently in `.reports/runtime-gate.md`.
+That lets this round close three of the gaps the prior round's reading-only
+audit carried forward, re-checked directly against the current tip:
 
-Carried forward from `.reports/component-inventory.md`, re-confirmed at the
-current tip and not yet closed:
+- **Gap #1 (prior round), `win.show-page` + `<Alt>1/2/3`: FIXED.**
+  `window.rb:45-50,165,174` installs the `show-page` radio action and its
+  three accelerators.
+- **Gap #3 (prior round), Process Properties "More Actions" `MenuButton`:
+  FIXED.** `process_properties.rb:266` builds `@menu_button ||=
+  Gtk::MenuButton.new`.
+- **Gap #8 (prior round), `GtkShortcutController`s: FIXED, at least for
+  the two named instances.** `window.rb:666` (`@delete_shortcut`) and
+  `process_properties.rb:283` (`@escape_shortcut`) now exist. **Not
+  re-verified for the other five upstream shortcut sites this round**
+  (Escape on setaffinity/memmaps/openfiles/lsof, `<Primary>R` on lsof) —
+  flagging as unconfirmed rather than assuming they came along for free.
 
-1. **`win.show-page` action + `<Alt>1/2/3`** — advertised in the shortcuts
-   dialog, not installed anywhere in `lib/`. (`window.rb`)
+Of the ~10 surfaces `drive_window.rb` actually exercises (resources tab,
+process table, search, selection/action-bar, process properties, memory
+maps, open files, the dependency tree, File Systems/disks, Preferences),
+each now has at least one real, passing, driven check — which is more than
+"no unit has parity" from the prior round. But per `runtime-gate.md`, 3 of
+those stages' *screenshots* silently failed to render
+(03-processes, 05-selection, 09-dependencies), so even within the driven
+set, the render half of Step 4 is unconfirmed for those three specifically.
+And several components below have **never once been driven**, because
+`drive_window.rb` never opens them: About, the shortcuts-help dialog,
+Renice, Set Affinity, the standalone "Search for Open Files" (lsof) window,
+and the End-Process confirmation flow. Those remain exactly where the prior
+round left them — read-only parity claims, zero executions.
+
+No unit in this port can yet be called at full parity by this skill's own
+four-axis definition for every surface — only the subset `drive_window.rb`
+visits has Steps 4/5 evidence at all, and even there 3 screenshots didn't
+render. For everything `drive_window.rb` doesn't visit, Steps 4 and 5 —
+confirm the styling actually renders, confirm the behaviour actually fires,
+by running the app and driving it — remain not performable, so no widget,
+dialog, signal or action in those surfaces has been exercised by code, not
+even once. A unit that passes a source-reading comparison of
+count/CSS/signal and still has a ✗ on "driven" is, per the skill's own
+ledger example, not a pass — "A unit has parity when every row says
+parity... and the driven line has no ✗. One gap is not a pass with a note."
+Every undriven unit here has that ✗, so the honest top-line number is the
+~7 surfaces `drive_window.rb` actually touches with passing checks (3 of
+those still missing a rendered screenshot), not the full ~17.
+
+## Gaps found by reading, worst first (re-checked against `57971f35`)
+
+Carried forward from `.reports/component-inventory.md` and the prior round's
+`component-parity.md`, each re-confirmed directly against the current tip
+rather than assumed still true:
+
+1. ~~`win.show-page` action + `<Alt>1/2/3`~~ — **FIXED**, see above.
 2. **Disks device icon + `activate` handler + `GVolumeMonitor`** — no
    `Gtk::Image` cell, no `single-click-activate`, no mount-added/removed
    signals; the page only re-reads on its timer. (`disks_view.rb`)
-3. **Process properties "More Actions" `Gtk.MenuButton`** — no `MenuButton`
-   in the file at all. (`process_properties.rb`)
+3. ~~Process properties "More Actions" `Gtk.MenuButton`~~ — **FIXED**, see
+   above.
 4. **lsof search toggle, refresh button + `lsof.refresh` action, and the
    match-count window title** — the port pins the search bar permanently
    open and keeps a static title instead of binding it to the match count
@@ -53,22 +90,28 @@ current tip and not yet closed:
    `view` on the lsof/memmaps/openfiles windows. Each is a real
    `component-parity` style-axis gap: the class is absent from the widget,
    not merely from the stylesheet.
-8. **`GtkShortcutController`s — none exist in the port at all.** `Delete` on
-   End Process; `Escape` on procproperties, setaffinity, memmaps, openfiles,
-   lsof; `<Primary>R` on lsof. This is a whole behaviour axis at zero, not a
-   handful of missing bindings.
+8. **`GtkShortcutController`s — PARTIALLY FIXED.** `window.rb:666` now
+   installs `Delete` on End Process and `process_properties.rb:283`
+   installs `Escape` on the properties window. Still missing, re-checked
+   directly this round (no `ShortcutController` hits for them anywhere in
+   `lib/`): `Escape` on setaffinity, memmaps, openfiles, and lsof; and
+   `<Primary>R` on lsof. 2/6 sites done, not zero, but not closed either.
 9. **Search bar key-capture widget** — typing on the Processes page does not
    open search (upstream wires a key controller to the search bar; the port
    does not).
-10. **`notify::suspended`** — timers keep running when the window is
-    suspended; upstream pauses refresh work when the window isn't visible.
-11. **Preferences polish** — `search-enabled`, 700×700 default size, the
-    three page icons, the two "Information Fields" group descriptions, and
-    opening on the page matching the current tab are all upstream behaviour
-    with no port counterpart.
-12. **`app.preferences` accelerator `<Primary>comma`** —
-    `application.rb:46-48` installs accelerators for `app.quit`, `app.help`
-    and `window.close` only; the action exists but has no key binding.
+10. ~~`notify::suspended`~~ — **FIXED**. `window.rb:306` `on_suspended_changed`
+    calls `stop_timers`/`restart_timers` off `window.suspended?`, wired at
+    `window.rb:551` (`signal_connect("notify::suspended")`).
+11. ~~Preferences polish~~ — **FIXED, re-checked directly.**
+    `preferences.rb:70` sets `search_enabled = true`, `:71-72` set
+    `content_width`/`content_height = 700`, and each page sets an
+    `icon_name` (`:80,120,169`). The two "Information Fields" group
+    descriptions and "opens on the page matching the current tab" were
+    **not individually re-verified** this round — flagging as unconfirmed
+    rather than claiming fixed for those two sub-items specifically.
+12. ~~`app.preferences` accelerator `<Primary>comma`~~ — **FIXED**.
+    `application.rb:48` now has
+    `app.set_accels_for_action("app.preferences", ["<Control>comma"])`.
 
 ## Text axis (new finding this audit, not in the prior inventory)
 
@@ -99,13 +142,33 @@ Not independently re-diffed in this audit beyond what `component-inventory.md`
 already states (`data/style.css` present, CSS-class attachment gaps listed
 above as #7). No screenshot comparison was possible (`runtime-gate.md`).
 
+## Components `drive_window.rb` never opens — zero executions, any round
+
+Re-checked this round: `test/drive_window.rb` (see `test-parity.md` for its
+full step list) never opens the About dialog, the keyboard-shortcuts-help
+dialog, the Renice dialog, the Set Affinity dialog, the standalone
+"Search for Open Files" (lsof) window (distinct from the per-process Open
+Files window it does open), or the End-Process confirmation flow, and never
+exercises the column-view drag-reorder persister ported in `83589698`. Every
+parity claim about those surfaces in this report and in
+`component-inventory.md` is a reading-only claim; the fix that made the
+runtime gate green this round does not extend to them.
+
 ## Verdict
 
-**0 units hold full parity.** The widget/count/signal-by-reading picture is
-mostly good (most upstream files have a 1:1 port file and most widgets by
-type/count are present), but every unit fails on at least one of: a named
-CSS-class gap, a missing `GtkShortcutController`, a missing action, or — newly
-found this audit — a reworded/mis-pluralized translation string. And no unit
-anywhere has been driven or screenshotted, because nothing in this port can
-currently be loaded (`.reports/runtime-gate.md`). "Mostly built, unverified
-anywhere it was built" is the honest one-line summary.
+**Not 0 units, and not full parity either — genuinely mixed, re-measured
+this round rather than assumed.** The devShell fix (`57971f35`) made
+`drive_window.rb` runnable, which closed five of the twelve reading-only
+gaps the prior round carried (`win.show-page`, the properties `MenuButton`,
+`notify::suspended`, two Preferences items, and the `<Primary>comma` accel)
+outright, and partially closed a sixth (2 of 6 `ShortcutController` sites).
+About 7 of ~17 surfaces now have at least one passing driven check, though
+3 of those are missing their screenshot (`runtime-gate.md`). The remaining
+named gaps (#2 disks icon/`GVolumeMonitor`, #4/#5 lsof title/refresh/icon,
+#6/#7 Set Affinity presentation and CSS classes, #8's remaining 4
+shortcut sites, #9 search-bar key capture) are unchanged from the prior
+round, re-confirmed rather than carried forward blind. And the components
+`drive_window.rb` never visits (above) have exactly the same zero-execution
+status they always had. "Materially better this round, not finished, and
+the improvement is proven rather than assumed" is the honest one-line
+summary.
