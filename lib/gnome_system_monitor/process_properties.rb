@@ -134,11 +134,20 @@ module GnomeSystemMonitor
     end
 
     # The same formatters the process table uses, so a value reads the same in
-    # both places.
+    # both places. The second element of each row's tuple is whatever widget
+    # actually carries the text — a GtkLabel for a value row, the
+    # AdwActionRow itself for a property row (it writes its own subtitle) —
+    # so a caller inspecting that widget (tests, accessibility) sees the real
+    # rendered value rather than an opaque setter.
     def update
       Settings[Settings::PROCESS_MEMORY_IN_IEC].then do |iec|
-        rows.each do |key, (_row, write)|
-          write.call(value_for(key, iec))
+        rows.each do |key, (_row, target)|
+          text = value_for(key, iec)
+          if target.respond_to?(:label=)
+            target.label = text
+          else
+            target.subtitle = text
+          end
         end
       end
     end
@@ -217,7 +226,7 @@ module GnomeSystemMonitor
             r.title = title
             r.add_suffix(label)
           end,
-          ->(text) { label.label = text },
+          label,
         ]
       end
     end
@@ -229,7 +238,7 @@ module GnomeSystemMonitor
         r.add_css_class("property")
         r.add_css_class("numeric")
       end.then do |r|
-        [r, ->(text) { r.subtitle = text }]
+        [r, r]
       end
     end
 
@@ -275,7 +284,7 @@ module GnomeSystemMonitor
         controller.scope = :managed
         controller.add_shortcut(
           Gtk::Shortcut.new(
-            Gtk::ShortcutTrigger.parse_string("Escape"),
+            Gtk::ShortcutTrigger.new("Escape"),
             Gtk::NamedAction.new("procprop.close"),
           ),
         )

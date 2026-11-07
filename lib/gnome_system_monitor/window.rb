@@ -667,7 +667,7 @@ module GnomeSystemMonitor
         controller.scope = :managed
         controller.add_shortcut(
           Gtk::Shortcut.new(
-            Gtk::ShortcutTrigger.parse_string("Delete"),
+            Gtk::ShortcutTrigger.new("Delete"),
             Gtk::NamedAction.new("win.send-signal-term"),
           ),
         )

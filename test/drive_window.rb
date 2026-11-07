@@ -20,6 +20,21 @@ require_relative "gtk_driver"
 
 # NON_UNIQUE so the test drives its own instance instead of handing over to a
 # System Monitor already running on the session bus.
+# update_action_state (window.rb) defers to a GLib::Idle rather than running
+# on the spot, so the revealer and the per-process actions land a tick after
+# the selection does. A fixed-length step is a wall-clock bet against however
+# loaded the machine running this happens to be, so this pumps the real main
+# context directly until the pending idle has run (or gives up) instead of
+# guessing how many ticks that takes.
+def pump_until(window, &done)
+  context = GLib::MainContext.default
+  50.times do
+    break if done.call(window)
+
+    context.iteration(true)
+  end
+end
+
 GtkDriver.drive(
   GnomeSystemMonitor::Application.new(flags: Gio::ApplicationFlags::NON_UNIQUE),
   shots: "tmp/shots",
@@ -32,6 +47,7 @@ GtkDriver.drive(
   # loop a couple of times; shooting before that gets no render node at all.
   d.step("let the window realise") { nil }
   d.step("and settle") { nil }
+  d.step("and settle some more") { nil }
 
   d.step("the window builds") do
     d.check("three pages") { window.call.stack.pages.n_items == 3 }
@@ -130,6 +146,10 @@ GtkDriver.drive(
     end.then { |index| window.call.process_view.selection.select_item(index, true) }
   end
 
+  d.step("let the selection settle") do
+    pump_until(window.call) { |w| !w.instance_variable_get(:@action_state_queued) }
+  end
+
   d.step("selecting reveals the action bar") do
     d.check("one process selected") { window.call.process_view.selected.length == 1 }
     d.check("the action bar is revealed") { window.call.action_bar_revealer.reveal_child? }
@@ -162,6 +182,7 @@ GtkDriver.drive(
   end
 
   d.step("let the maps window realise") { nil }
+  d.step("and let it settle") { nil }
 
   d.step("the memory maps list is populated") do
     d.check("a maps window opened") { window.call.detail_windows.length == 1 }
