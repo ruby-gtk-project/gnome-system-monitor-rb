@@ -86,8 +86,19 @@ module GnomeSystemMonitor
     # raises is skipped rather than taking the refresh down with it — a
     # malformed .desktop file or a broken theme entry is upstream's reason for
     # the same try/catch.
+    #
+    # A plain `each`/`break`, not `.lazy.filter_map { }.first` — `Enumerator::Lazy`
+    # pulls its block through a Fiber, and a candidate getter here calls into
+    # GObject-Introspection (the icon theme lookup); running that off the
+    # main Fiber is the kind of thing the bindings do not tolerate (see
+    # `list_refresh.rb`'s header comment on this class of corruption bug).
     def set_icon(process)
-      process.icon = candidates.lazy.filter_map { |getter| resolve(getter, process) }.first
+      found = nil
+      candidates.each do |getter|
+        found = resolve(getter, process)
+        break if found
+      end
+      process.icon = found
     end
 
     # The theme decides what a name resolves to, so a theme change invalidates

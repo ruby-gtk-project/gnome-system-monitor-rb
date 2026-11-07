@@ -196,6 +196,15 @@ module GnomeSystemMonitor
   class SearchOpenFiles
     include Translations
 
+    # window.rb hands this the process table's own PrettyTable so a search
+    # across every process does not build a second icon cache for the
+    # lifetime of the window it opens on demand.
+    def initialize(pretty_table:)
+      @pretty_table = pretty_table
+    end
+
+    attr_reader :pretty_table
+
     def build
       view.build.tap do |win|
         view.toolbar_view.add_top_bar(search_bar)

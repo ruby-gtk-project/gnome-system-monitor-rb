@@ -45,18 +45,16 @@ module GnomeSystemMonitor
     end
   end
 
-  # The keyboard shortcuts window.
+  # The keyboard shortcuts dialog.
   #
-  # Built from upstream's data/shortcuts-dialog.ui through GtkBuilder, as the
-  # Ruby bindings cannot construct a GtkShortcutsWindow directly — the
-  # generated constructor resolves to GtkWindow's and raises.
+  # Built from upstream's data/shortcuts-dialog.ui through GtkBuilder.
+  # Upstream's root object there is an `AdwShortcutsDialog`, which is an
+  # `Adwaita::Dialog` (shown with `present(parent)`, the same as
+  # `AlertDialog`/`AboutDialog`), not a `GtkWindow` — the builder's objects
+  # have to be searched for an `Adwaita::Dialog`, not a `Gtk::Window`, or the
+  # search comes back empty and `present` raises on a `nil` dialog.
   class ShortcutsDialog
-    def present(parent)
-      window.tap do |win|
-        win.transient_for = parent
-        win.present
-      end
-    end
+    def present(parent) = dialog.present(parent)
 
     def builder
       @builder ||= Gtk::Builder.new.tap do |b|
@@ -65,6 +63,6 @@ module GnomeSystemMonitor
       end
     end
 
-    def window = @window ||= builder.objects.find { |object| object.is_a?(Gtk::Window) }
+    def dialog = @dialog ||= builder.objects.find { |object| object.is_a?(Adwaita::Dialog) }
   end
 end

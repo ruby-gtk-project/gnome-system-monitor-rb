@@ -302,7 +302,12 @@ module GnomeSystemMonitor
         column.id = Columns.find(:name).index.to_s
         column.resizable = true
         column.expand = true
-        column.sorter = Gtk::StringSorter.new(Gtk::PropertyExpression.new(Process, nil, "name"))
+        # See `sorter_for`'s comment: the expression goes through the
+        # property setter, not `.new`'s argument, to avoid the
+        # `g_object_ref` critical on the non-GObject `GtkExpression`.
+        column.sorter = Gtk::StringSorter.new(nil).tap do |s|
+          s.expression = Gtk::PropertyExpression.new(Process, nil, "name")
+        end
       end
     end
 
@@ -371,11 +376,16 @@ module GnomeSystemMonitor
     # A GtkStringSorter for the text columns and a GtkNumericSorter for the
     # rest, both reading the GObject property the row installs — so the
     # comparing happens in C and a changed value re-sorts the view by itself.
+    # See the matching comment on `DetailView#sorter_for`: the expression
+    # goes through the property setter, not the constructor argument, to
+    # avoid a `g_object_ref` `GLib-GObject-CRITICAL` on the (non-GObject)
+    # `GtkExpression` that these bindings' constructor-argument marshaling
+    # triggers.
     def sorter_for(column)
       Gtk::PropertyExpression.new(Process, nil, Columns.sort_key(column).to_s).then do |expression|
         case column.type
-        when :string then Gtk::StringSorter.new(expression)
-        else Gtk::NumericSorter.new(expression)
+        when :string then Gtk::StringSorter.new(nil).tap { |s| s.expression = expression }
+        else Gtk::NumericSorter.new(nil).tap { |s| s.expression = expression }
         end
       end
     end

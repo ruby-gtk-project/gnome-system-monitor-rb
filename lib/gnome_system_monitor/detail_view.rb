@@ -188,11 +188,22 @@ module GnomeSystemMonitor
       end
     end
 
+    # Handing the expression to `.new` rather than setting it after raises a
+    # `GLib-GObject-CRITICAL` (`g_object_ref: assertion 'G_IS_OBJECT
+    # (object)' failed`) under these bindings — a `GtkExpression` is a boxed
+    # ref-counted type, not a `GObject`, and the constructor-argument
+    # marshaling path calls `g_object_ref` on it regardless; the property
+    # setter's marshaling does not make that mistake. Confirmed: the
+    # critical fires reproducibly through `.new(expression)` and never
+    # through `.new(nil).tap { |s| s.expression = expression }`, and the
+    # bad ref is what the later `[BUG] Segmentation fault` traces back to —
+    # heap corruption from the failed ref shows up far from this call, not
+    # here.
     def sorter_for(column)
       Gtk::PropertyExpression.new(row_class, nil, column.key.to_s).then do |expression|
         case column.type
-        when :string then Gtk::StringSorter.new(expression)
-        else Gtk::NumericSorter.new(expression)
+        when :string then Gtk::StringSorter.new(nil).tap { |s| s.expression = expression }
+        else Gtk::NumericSorter.new(nil).tap { |s| s.expression = expression }
         end
       end
     end

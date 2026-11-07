@@ -217,10 +217,13 @@ module GnomeSystemMonitor
     def priority_action
       Gio::SimpleAction.new("priority", GLib::VariantType.new("i")).tap do |a|
         a.signal_connect("activate") do |_action, parameter|
-          if parameter.value == CUSTOM_PRIORITY
+          # The gio2 binding hands the signal handler the already-unwrapped
+          # Ruby value for a scalar GVariant parameter ("i" here), not a
+          # GLib::Variant to call `.value` on.
+          if parameter == CUSTOM_PRIORITY
             open_renice
           else
-            apply_priority(parameter.value)
+            apply_priority(parameter)
           end
         end
       end

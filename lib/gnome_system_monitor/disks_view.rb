@@ -362,11 +362,16 @@ module GnomeSystemMonitor
       end
     end
 
+    # See the matching comment on `DetailView#sorter_for`: the expression
+    # goes through the property setter, not the constructor argument, to
+    # avoid a `g_object_ref` `GLib-GObject-CRITICAL` on the (non-GObject)
+    # `GtkExpression` that these bindings' constructor-argument marshaling
+    # triggers.
     def sorter_for(column)
       Gtk::PropertyExpression.new(Disk, nil, column.id).then do |expression|
         case column.type
-        when :string then Gtk::StringSorter.new(expression)
-        else Gtk::NumericSorter.new(expression)
+        when :string then Gtk::StringSorter.new(nil).tap { |s| s.expression = expression }
+        else Gtk::NumericSorter.new(nil).tap { |s| s.expression = expression }
         end
       end
     end
