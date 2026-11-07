@@ -160,6 +160,9 @@ module GnomeSystemMonitor
     # Column visibility, width and order come back from the same gschema keys
     # upstream writes, and go back into them whenever the user changes one.
     def restore_columns
+      @restoring_columns = true
+      restore_column_order
+
       Columns.visible.each do |column|
         column_widget(column).tap do |widget|
           widget.visible = Settings.column_visible?(column.index)
@@ -172,6 +175,41 @@ module GnomeSystemMonitor
       end
 
       restore_sort
+      @restoring_columns = false
+
+      watch_column_order
+    end
+
+    # column-view-persister.c's columns_changed(), run once at startup from
+    # the saved "columns-order": each id is looked up among the columns
+    # already appended and moved to its saved position in turn.
+    def restore_column_order
+      Settings.columns_order.to_a.each_with_index do |index, pos|
+        column_view.columns.each do |widget|
+          if widget.id == index.to_s
+            column_view.insert_column(pos, widget)
+            break
+          end
+        end
+      end
+    end
+
+    # column-view-persister.c's own columns_changed(): whenever the columns
+    # list changes — which a header drag-reorder does — the new order is
+    # written straight back to the gschema key it came from.
+    def watch_column_order
+      column_view.columns.signal_connect("items-changed") do
+        if !@restoring_columns
+          save_column_order
+        end
+      end
+    end
+
+    # The gschema's proctree "columns-order" is `ai`, a column index per
+    # position — unlike disksview's string-keyed one — so each id round-trips
+    # through an integer here.
+    def save_column_order
+      Settings.set_columns_order(column_view.columns.map { |widget| widget.id.to_i })
     end
 
     def restore_sort
@@ -261,6 +299,7 @@ module GnomeSystemMonitor
     # is built by hand rather than from the table.
     def name_column
       @name_column ||= Gtk::ColumnViewColumn.new(Columns.find(:name).title.call, name_factory).tap do |column|
+        column.id = Columns.find(:name).index.to_s
         column.resizable = true
         column.expand = true
         column.sorter = Gtk::StringSorter.new(Gtk::PropertyExpression.new(Process, nil, "name"))
@@ -323,6 +362,7 @@ module GnomeSystemMonitor
 
     def build_column(column)
       Gtk::ColumnViewColumn.new(column.title.call, value_factory(column)).tap do |widget|
+        widget.id = column.index.to_s
         widget.resizable = true
         widget.sorter = sorter_for(column)
       end

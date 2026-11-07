@@ -84,8 +84,12 @@ module GnomeSystemMonitor
 
     def columns_order = proctree.get_value("columns-order")
 
+    # proctree's "columns-order" is `ai`, and the glib2 gem's Variant.new has
+    # no Ruby -> GVariant(ai) conversion (raises NotImplementedError —
+    # confirmed, not assumed). GVariant's own text format round-trips
+    # through it instead: "[0, 1, 2]" parses straight to an `ai` value.
     def set_columns_order(order)
-      proctree.set_value("columns-order", order)
+      proctree.set_value_raw("columns-order", GLib::Variant.parse("[#{order.join(", ")}]", "ai"))
     end
 
     def sort_column = proctree.get_int("sort-col")
