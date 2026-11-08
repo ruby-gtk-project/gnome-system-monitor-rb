@@ -71,6 +71,21 @@ check("cgroup controllers are grouped and sorted") do
 end
 check("a path with no controllers stands alone") { P.format_cgroup("/init.scope", []) == "/init.scope" }
 
+# src/cgroups/test.c: extract_name(), ported verbatim with upstream's exact
+# fixture strings.
+check("cgroups v2: nil content is empty") { P.extract_name(nil) == "" }
+check("cgroups v2: empty content is empty") { P.extract_name("") == "" }
+check("cgroups v2: root path is empty") { P.extract_name("0::/") == "" }
+check("cgroups v2: root path with newline is empty") { P.extract_name("0::/\n") == "" }
+check("cgroups v2: a real path") { P.extract_name("0::/a\n") == "/a" }
+
+check("cgroups v1: one entry, bare controller") { P.extract_name("0:a1:/b1\n") == "/b1 (a1)" }
+check("cgroups v1: one entry, name= controller") { P.extract_name("0:name=a2:/b2\n") == "/b2 (a2)" }
+
+check("cgroups v1: multiple entries sort by path") do
+  P.extract_name("1:a1:/b1\n0:a0:/b0\n") == "/b0 (a0), /b1 (a1)"
+end
+
 # The IO counters are the bytes that actually reached storage.
 check("io reads back two counters") { P.io(SELF).keys.sort == %i[read write] }
 

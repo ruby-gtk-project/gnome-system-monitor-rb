@@ -153,8 +153,13 @@ module GnomeSystemMonitor
     # gsm_cgroups_get_name(): one entry per distinct cgroup path, each
     # followed by its controllers in brackets. Paths that are empty or "/"
     # say nothing and are dropped, and a "name=" prefix is noise.
-    def cgroup_name(pid)
-      cgroup_lines(pid).each_with_object({}) do |line, paths|
+    def cgroup_name(pid) = extract_name(cgroup_lines(pid).join)
+
+    # extract_name(): the pure, raw-content half of gsm_cgroups_get_name(),
+    # split out so it can be fed upstream's test fixtures (a whole
+    # /proc/PID/cgroup file's content, nil included) directly.
+    def extract_name(content)
+      content.to_s.each_line.each_with_object({}) do |line, paths|
         line.chomp.split(":", 3).then do |(_hierarchy, controllers, path)|
           if path && !path.empty? && path != "/"
             paths[path] = (paths[path] || []) + controllers.to_s.split(",")

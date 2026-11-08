@@ -158,7 +158,7 @@
             echo "gnome-system-monitor devshell — ruby $(ruby -e 'print RUBY_VERSION')"
             echo "run the app:   xvfb-run ruby exe/gnome-system-monitor"
             echo "drive the app: xvfb-run ruby test/drive_window.rb"
-            echo "run the specs: ruby -e 'require \"rspec/core\"; exit RSpec::Core::Runner.run([\"--format\", \"progress\", \"--require\", \"spec_helper\", \"spec\"])'"
+            echo "run the tests: ruby test/test_procfs.rb && ruby test/test_units.rb && ruby test/test_binding_limits.rb"
           '';
         };
       }

@@ -97,6 +97,8 @@ module GtkDriver
     # you the thing you did not think to ask about — a label that never got
     # set, a row that renders blank, a dialog that opened behind the window.
     def shot(name, widget = nil)
+      @checks += 1
+
       if @shots.nil?
         raise 'no shots directory configured'
       end
@@ -110,17 +112,35 @@ module GtkDriver
         FileUtils.mkdir_p(@shots)
 
         File.join(@shots, "#{name}.png").then do |path|
+          settle(target)
           render(target, path)
           puts "    shot #{path}"
           path
         end
       end
     rescue StandardError => e
+      # A screenshot that fails to render is a real defect, not a cosmetic
+      # miss — count it like any other failed check so the final summary and
+      # exit code cannot go green while a shot silently came out missing.
       puts "    shot #{name} failed: #{e.class}: #{e.message}"
+      @failed_checks << "shot #{name} (#{e.class}: #{e.message})"
       nil
     end
 
     def default_window = @window_block&.call
+
+    # A widget gets a render node only after GTK has had the main loop back
+    # long enough to size-allocate and draw it. A step that mutates the tree
+    # (switching stack pages, opening a dialog, replacing a label) and then
+    # immediately shoots in the same tick can catch it before that happens —
+    # the fixed-length timeout between steps is no guarantee either, on a
+    # loaded machine. Pump the real main context directly, the same way
+    # `pump_until` in drive_window.rb waits out a deferred idle, instead of
+    # gambling on a wall-clock delay.
+    def settle(_widget)
+      context = GLib::MainContext.default
+      20.times { context.iteration(false) }
+    end
 
     # --- Running -----------------------------------------------------------
 
