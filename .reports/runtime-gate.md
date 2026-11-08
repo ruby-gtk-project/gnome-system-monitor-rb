@@ -184,6 +184,42 @@ during `Gio::ListStore#append`), so the specific claim "survives under a
 real display" is **not re-confirmed by this audit** — inconclusive, not
 contradicted. Flagging rather than asserting either way.
 
+## This audit's independent re-run: the "0 failed, 0 crash" framing for the 42-check gate hides a WORSE screenshot gap than the one named above
+
+Re-ran `nix develop --command xvfb-run -a ruby test/drive_window.rb` directly
+for this audit, against the current tip (`8e919988`). It reproduces
+**42 of 42 checks passed, DRIVE OK** exactly as claimed. But this round's own
+"Verdict" section (below) summarizes the run as "0 failed, 0 errored, 0
+`CRITICAL`, 0 crash" without re-stating the screenshot caveat that the
+*prior* round's section above carefully wrote down for the 30-check run. Doing
+so hides a regression: this round's run, captured directly in this audit,
+silently fails to render **six** screenshots, not the three the prior round
+found:
+
+```
+shot 02-resources-live failed: RuntimeError: widget produced no render node (not realised yet?)
+shot 03-processes      failed: RuntimeError: widget produced no render node (not realised yet?)
+shot 05-selection       failed: RuntimeError: widget produced no render node (not realised yet?)
+shot 07-memory-maps     failed: RuntimeError: widget produced no render node (not realised yet?)
+shot 09-dependencies    failed: RuntimeError: widget produced no render node (not realised yet?)
+shot 12-processes-final failed: RuntimeError: widget produced no render node (not realised yet?)
+```
+
+Same root cause as before (`test/gtk_driver.rb#shot` rescues `StandardError`
+and does not fail the run or count against `@failed_checks`), same silent
+behaviour, but a wider blast radius now that the script drives more surfaces
+— 6 of its ~16 intended screenshots never actually render a frame, every run,
+with nothing in the "42 of 42 checks passed / DRIVE OK" output a reader would
+see that says so. **This round's own "Verdict" section below does not
+mention this at all** — it was written against the bug-fixing commit's own
+claims ("0 failed... 0 crash") without re-opening the screenshot question the
+prior round itself had flagged as still-relevant. That is exactly the
+false-green shape `accountability-ensurance` exists to catch: a clean-sounding
+summary line, carried forward commit to commit, that quietly stops
+mentioning a known defect once a different number (42 vs 30) makes the
+section look new. Treating "42/42, 0 failed" as the whole gate, as this
+round's Verdict does, is a gap in the report, not just in the app.
+
 ## Verdict (prior round, superseded by this round's section above)
 
 The headline gate is real and reproduced: `drive_window.rb` genuinely

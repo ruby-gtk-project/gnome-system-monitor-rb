@@ -153,6 +153,33 @@ every other live check in this audit (`.reports/runtime-gate.md`). **A check
 that could not run is not a check that passed**: domain-binding and
 on-screen-translation are open items, not green.
 
+## This audit's re-check against the current tip (`8e919988`)
+
+The prior round's note above said the census was not re-run from scratch and
+carried the `844ed8ec`/`57971f35` numbers forward on the basis that no commit
+since touched `lib/`'s user-facing strings. Two more commits have landed since
+that note was written (`16704eb4`, `8e919988`). Checked directly this round:
+`git diff 57971f35 HEAD -- lib/ | grep -E '_\(|n_\('` turns up no added or
+reworded translation-marked string — the diff is bug fixes (an unwrapped
+GVariant parameter, a missing keyword constructor, a `Gtk::Window`/
+`Adwaita::Dialog` lookup, and `Gtk::StringSorter`/`Gtk::NumericSorter`
+construction) and one new help page pair (`16704eb4`), not new UI text. So the
+po/-domain numbers above (334/374, etc.) still stand as current, **not**
+because they were re-run, but because this audit independently confirmed the
+precondition the carried-forward note depended on.
+
+**What the gettext-domain census does not cover, and a real gap found
+elsewhere in this audit:** Mallard help pages (`help/<lang>/*.page`) are a
+second, separate translatable-content channel this ledger's `catalogue.rb`
+never touches — it walks `po/`, not `help/`. `.reports/component-identification.md`
+found that the port's `help/C` is missing one upstream file,
+`process-forcequit.page`, despite the commit titled "Port the two missing
+help/C Mallard pages." That is a content-parity gap this ledger's scope
+excludes by design, which is exactly why it is recorded in the component
+ledger instead — naming it here too so a reader of this file doesn't take
+"334/374 messages, 99/99 languages" as covering the help tree, which it does
+not.
+
 ## Verdict
 
 `summary.parity: false`. 334/374 messages, 40 gaps (10 waiting on

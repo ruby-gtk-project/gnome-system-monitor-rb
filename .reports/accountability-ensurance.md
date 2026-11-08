@@ -127,6 +127,35 @@ gap, and it's named here because a reader could otherwise mistake "no ledger
 exists" for "nothing to audit" rather than "the audit trail itself is
 missing."
 
+## New finding this audit: the 42-check runtime gate's own "Verdict" is the false-green this skill exists to catch
+
+Independently re-ran `test/drive_window.rb` for this audit (see
+`.reports/runtime-gate.md` for the full transcript). The headline — `42 of 42
+checks passed`, `DRIVE OK` — reproduces exactly. But the same report's
+"Verdict (this round)" section summarizes that run as "0 failed, 0 errored,
+0 `CRITICAL`, 0 crash" and stops there, carrying forward none of the
+screenshot caveat the *prior* round's section had written down two sections
+earlier in the same file. Driving the same script directly for this audit
+shows six screenshot captures — not the three the prior round found — fail
+silently (`RuntimeError: widget produced no render node`), rescued by
+`test/gtk_driver.rb#shot` without touching the pass/fail count. Nothing in
+this port's own prose asserts "every screenshot rendered," so this is not a
+fabricated claim about the app — but the *report*, read start to finish,
+presents a clean "0 failed... 0 crash" sentence as the round's conclusion
+immediately after fixing four bugs, in a document that itself proves (two
+sections up) that "0 failed" has never meant "every screenshot rendered"
+here. That is the skill's "green claim that rests on something never fully
+read" pattern, found in this round's own report rather than in `lib/` or
+`exe/`. Rewritten into `.reports/runtime-gate.md` directly as part of this
+audit rather than only noted here.
+
+Independently re-confirmed this round, same method as before: scanned
+`lib/`, `exe/`, and `.reports/` with
+`.claude/skills/accountability-ensurance/scripts/find-excuses.rb` plus a
+manual `grep -rniE 'TODO|FIXME|not implemented|for now|in a future' lib/
+exe/` — zero hits in `lib/`/`exe/`, the one `system_stats.rb:13` hit
+reproduced, no `PORTING.md` found at the root (confirmed again by `ls`).
+
 ## Verdict
 
 No new scanner hits this round beyond the one rewritten above (re-run of

@@ -3,12 +3,49 @@
 | | |
 |---|---|
 | Upstream | `main` @ `ebfa2af8` |
-| Port | `ruby` @ `57971f35` |
-| Units with full (4-axis) parity, driven and screenshotted | **~7 / ~17**, see below |
+| Port | `ruby` @ `8e919988` (re-checked against this tip; prior text below was written at `57971f35` and is carried forward except where marked "this audit") |
+| Units with full (4-axis) parity, driven and screenshotted | **~13 / ~17** after this round's bug-fixing commit, with a caveat — see below |
 | Units with parity on count+CSS+signal/action axes by reading only | most, with named gaps below |
-| Steps 4 & 5 (render, drive) performed by this audit | **partially — the devShell is fixed and `drive_window.rb` now runs; see `runtime-gate.md`** |
+| Steps 4 & 5 (render, drive) performed by this audit | **mostly — `drive_window.rb` now opens 15 of 16 components the runtime gate counts, confirmed 42/42 directly in this audit; 6 of its screenshot captures still silently fail to render (see `runtime-gate.md`)** |
 
-## Update this round: the devShell fix changes the picture, and reopens 3 items
+## This audit, re-checked directly against `8e919988`
+
+`8e919988` ("Drive renice, affinity, end-process, shortcuts, about and
+column drag-reorder; fix four real bugs") is the newest commit and extends
+`drive_window.rb` to open every component the prior round's verdict (below)
+had listed as "never once been driven" except Search for Open Files: About,
+the keyboard-shortcuts dialog, Renice, Set Affinity, and the End-Process
+confirmation flow, plus the column-view drag-reorder persister. Re-ran
+`nix develop --command xvfb-run -a ruby test/drive_window.rb` directly for
+this audit (not just trusted from the commit message): **42 of 42 checks
+pass**, reproducing the commit's own claim. Four real bugs the commit fixed
+(an unwrapped-GVariant read in `window.rb`'s priority action, a missing
+`SearchOpenFiles#initialize`, a `Gtk::Window`/`Adwaita::Dialog` mismatch in
+the shortcuts dialog lookup, and a `g_object_ref`-on-non-`GObject` ruby-gnome
+binding defect in every `Gtk::StringSorter`/`Gtk::NumericSorter` built) are
+real, confirmed fixes, each one only findable by actually opening the
+dialog — exactly the kind of bug a static read or `ruby -c` cannot surface.
+
+**But the "driven" column still has an open item this audit found, not
+inherited:** re-running the drive script directly shows 6 of its ~16
+screenshot captures (`02-resources-live`, `03-processes`, `05-selection`,
+`07-memory-maps`, `09-dependencies`, `12-processes-final`) silently fail to
+render (`RuntimeError: widget produced no render node`) without affecting
+the 42/42 count — worse than the 3 the prior round found, because more
+surfaces are now driven. So "driven" per this skill's Step 4 ("confirm the
+styling actually renders... screenshot the unit") is still incomplete for
+those six stages even though their `check()` assertions pass. See
+`.reports/runtime-gate.md` for the full transcript and
+`.reports/accountability-ensurance.md` for why this matters as a reporting
+gap, not only an app gap.
+
+**Still not driven at all, confirmed by reading `test/drive_window.rb`
+directly this round:** the standalone "Search for Open Files" (lsof) window
+— `8e919988`'s own log says driving it reproducibly segfaults during the
+very first process-table icon scan and the step was removed rather than
+fixed. That surface's component-parity claims below remain reading-only.
+
+## Update from the prior round: the devShell fix changes the picture, and reopens 3 items
 
 `57971f35` fixed the broken devShell the prior round's `runtime-gate.md`
 documented, and `test/drive_window.rb` now runs for real: `30/30 checks
@@ -142,17 +179,20 @@ Not independently re-diffed in this audit beyond what `component-inventory.md`
 already states (`data/style.css` present, CSS-class attachment gaps listed
 above as #7). No screenshot comparison was possible (`runtime-gate.md`).
 
-## Components `drive_window.rb` never opens — zero executions, any round
+## Components `drive_window.rb` never opens — updated this audit, only one left
 
-Re-checked this round: `test/drive_window.rb` (see `test-parity.md` for its
-full step list) never opens the About dialog, the keyboard-shortcuts-help
-dialog, the Renice dialog, the Set Affinity dialog, the standalone
-"Search for Open Files" (lsof) window (distinct from the per-process Open
-Files window it does open), or the End-Process confirmation flow, and never
-exercises the column-view drag-reorder persister ported in `83589698`. Every
-parity claim about those surfaces in this report and in
-`component-inventory.md` is a reading-only claim; the fix that made the
-runtime gate green this round does not extend to them.
+Superseded by `8e919988`, confirmed directly in this audit by re-running the
+drive script and reading `test/drive_window.rb`: it now opens About, the
+keyboard-shortcuts-help dialog, the Renice dialog, the Set Affinity dialog,
+the End-Process confirmation flow, and exercises the column-view drag-reorder
+persister (`83589698`). **Only the standalone "Search for Open Files" (lsof)
+window remains never-opened** — distinct from the per-process Open Files
+window, which is driven — because driving it reproducibly segfaults
+(`runtime-gate.md`), and the step was removed rather than fixed. Every
+parity claim about that one surface is still reading-only; every parity
+claim about the other six is now backed by at least one passing driven
+check, though 6 of those checks' screenshot captures still don't render
+(see the "This audit" section above).
 
 ## Verdict
 

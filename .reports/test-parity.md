@@ -114,6 +114,21 @@ real tests) is **unchanged** — nothing ported them this round either.
   against), but a real gap in the port's own test tooling worth stating
   plainly rather than leaving silent.**
 
+## This audit's independent re-check against `8e919988`
+
+Re-ran directly, not just trusted: `test/test_units.rb` and
+`test/test_procfs.rb` both still pass clean, `spec/` still holds only
+`spec_helper.rb` and `README.md` (zero `*_spec.rb` files, confirmed again by
+`find spec -type f`), and `test/drive_window.rb` now passes **42/42**
+(up from 30/30 — see `.reports/runtime-gate.md` and
+`.reports/component-parity.md` for what the extra 12 checks cover and the
+new screenshot-rendering caveat they bring with them). None of this touches
+the cgroup-test census above: `8e919988` and `16704eb4` add no test file and
+no change to `proc_fs.rb`'s cgroup parsing, so the 0/3 gap is unchanged, not
+re-verified-to-still-be-zero by anything new this round beyond re-reading
+`lib/gnome_system_monitor/proc_fs.rb` and confirming no port test calls
+`cgroup_name` with raw fixture text, same as before.
+
 ## Rules this ledger follows
 
 - No third state: every upstream test is `ported` or `gap`. All three are `gap`.

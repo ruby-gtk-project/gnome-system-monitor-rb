@@ -74,6 +74,28 @@ catalogue" table, but that table was not re-verified for byte/content parity
 in this audit — only presence. Flagging as unverified rather than re-asserting
 it as checked.
 
+**This audit checked `help/C` file-by-file and the flag above was correct to
+be suspicious: `16704eb4` ("Port the two missing help/C Mallard pages") did
+not in fact close the help/C file-set gap.** Diffing
+`find help/C -maxdepth 1 -name '*.page'` between `origin/main` @ `ebfa2af8`
+and `ruby` @ `8e919988`:
+
+```
+upstream: 29 .page files
+port:     28 .page files
+missing:  process-forcequit.page
+```
+
+`process-forcequit.page` is itself a stub upstream (`status="stub"`, with an
+inline reviewer comment arguing it may be redundant with
+`process-end-kill.page`) and no other upstream page `xref`s it — but it is a
+real file upstream ships in `help/C`, and the port does not ship it. Per
+`component-parity`'s own rule, "not applicable" and "upstream itself flags it
+as maybe-redundant" are not a third option; this is a one-file gap, not a
+zero. Scope note: this check covered `help/C` only — the 98 other `help/<lang>`
+directories were not diffed file-by-file in this audit, so whether the port's
+translated help trees match upstream's is still unverified, not confirmed.
+
 ## Identification gap this audit adds: the text axis
 
 `component-scan.sh` (and therefore the existing inventory) does not carry
