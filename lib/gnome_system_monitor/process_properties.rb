@@ -23,7 +23,7 @@ module GnomeSystemMonitor
 
     def build
       window.tap do |win|
-        win.title = format(_("%<name>s (PID %<pid>u)"), name: process.name, pid: process.pid)
+        win.title = format(_("%s (PID %u)"), process.name, process.pid)
         win.content = toolbar_view
         win.insert_action_group("procprop", action_group)
         win.add_controller(escape_shortcut)

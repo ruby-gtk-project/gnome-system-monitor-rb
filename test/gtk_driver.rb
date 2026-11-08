@@ -112,7 +112,6 @@ module GtkDriver
         FileUtils.mkdir_p(@shots)
 
         File.join(@shots, "#{name}.png").then do |path|
-          settle(target)
           render(target, path)
           puts "    shot #{path}"
           path
@@ -128,19 +127,6 @@ module GtkDriver
     end
 
     def default_window = @window_block&.call
-
-    # A widget gets a render node only after GTK has had the main loop back
-    # long enough to size-allocate and draw it. A step that mutates the tree
-    # (switching stack pages, opening a dialog, replacing a label) and then
-    # immediately shoots in the same tick can catch it before that happens —
-    # the fixed-length timeout between steps is no guarantee either, on a
-    # loaded machine. Pump the real main context directly, the same way
-    # `pump_until` in drive_window.rb waits out a deferred idle, instead of
-    # gambling on a wall-clock delay.
-    def settle(_widget)
-      context = GLib::MainContext.default
-      20.times { context.iteration(false) }
-    end
 
     # --- Running -----------------------------------------------------------
 
@@ -193,6 +179,46 @@ module GtkDriver
         end
       end
 
+    # A widget gets a render node only after GTK has had the main loop back
+    # long enough to size-allocate and draw it. A step that mutates the tree
+    # (switching stack pages, opening a dialog, replacing a label) and then
+    # shoots straight away can catch it before that has happened, and a fixed
+    # number of ticks is a guess against however loaded the machine running
+    # this is. So this pumps the real main context directly, the same way
+    # `pump_until` in drive_window.rb waits out a deferred idle, giving the
+    # widget every chance to produce a node.
+    #
+    # It must stay non-blocking (`iteration(false)`), not `iteration(true)`:
+    # a widget that is never going to render again (a dialog already closed
+    # between the step that opened it and the shot) has no source left that
+    # will ever become ready, and `iteration(true)` would then block forever
+    # — which is worse than a failed check, it is a hung run with no report
+    # at all. A wall-clock deadline bounds the wait instead, so a widget that
+    # genuinely cannot render fails the check quickly rather than hanging.
+      RENDER_WAIT_SECONDS = 2.0
+
+      def snapshot_node(widget)
+        Gtk::Snapshot.new.then do |snapshot|
+          Gtk::WidgetPaintable.new(widget).snapshot(snapshot, widget.width, widget.height)
+          snapshot.to_node
+        end
+      end
+
+      def wait_for_render_node(widget)
+        context = GLib::MainContext.default
+        deadline = monotonic_now + RENDER_WAIT_SECONDS
+
+        node = snapshot_node(widget)
+        while node.nil? && monotonic_now < deadline
+          context.iteration(false) || sleep(0.01)
+          node = snapshot_node(widget)
+        end
+
+        node
+      end
+
+      def monotonic_now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
     # GTK4 has no screenshot call. The route that works headlessly is to paint
     # the widget into a render node and hand that to a renderer, which returns
     # a texture that knows how to write a PNG.
@@ -201,15 +227,12 @@ module GtkDriver
           renderer.realize(nil)
 
           begin
-            Gtk::Snapshot.new.then do |snapshot|
-              Gtk::WidgetPaintable.new(widget).snapshot(snapshot, widget.width, widget.height)
-              snapshot.to_node.then do |node|
-                if node.nil?
-                  raise 'widget produced no render node (not realised yet?)'
-                end
-
-                renderer.render_texture(node, nil).save_to_png(path)
+            wait_for_render_node(widget).then do |node|
+              if node.nil?
+                raise 'widget produced no render node (not realised yet?)'
               end
+
+              renderer.render_texture(node, nil).save_to_png(path)
             end
           ensure
             renderer.unrealize

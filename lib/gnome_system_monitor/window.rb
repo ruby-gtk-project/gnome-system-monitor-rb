@@ -390,6 +390,10 @@ module GnomeSystemMonitor
         ].each do |name|
           simple_actions[name].enabled = !selected.empty?
         end
+
+        # proctable.cpp: the button's own label is plural on the selection
+        # count, independent of the kill-confirmation dialog's wording.
+        end_process_button.label = n_("_End Process…", "_End Processes…", selected.length)
       end
     end
 
@@ -653,7 +657,7 @@ module GnomeSystemMonitor
     def process_action_bar = @process_action_bar ||= Gtk::ActionBar.new
 
     def end_process_button
-      @end_process_button ||= Gtk::Button.new(label: _("_End Process…")).tap do |button|
+      @end_process_button ||= Gtk::Button.new(label: n_("_End Process…", "_End Processes…", 1)).tap do |button|
         button.use_underline = true
         button.halign = :start
         button.receives_default = true

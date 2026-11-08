@@ -26,7 +26,7 @@ module GnomeSystemMonitor
 
     def process_title(process)
       if process
-        format(_("%<name>s (PID %<pid>u)"), name: process.name, pid: process.pid)
+        format(_("%s (PID %u)"), process.name, process.pid)
       else
         ""
       end

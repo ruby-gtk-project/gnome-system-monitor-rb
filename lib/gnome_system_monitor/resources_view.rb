@@ -204,10 +204,10 @@ module GnomeSystemMonitor
         else
           # xgettext: "540MiB (53 %) of 1.0 GiB" or "540MB (53 %) of 1.0 GB"
           format(
-            _("%<used>s (%<percent>.1f%%) of %<total>s"),
-            used:    Units.byte_size(used, iec),
-            percent: 100.0 * fraction,
-            total:   Units.byte_size(total, iec),
+            _("%s (%.1f%%) of %s"),
+            Units.byte_size(used, iec),
+            100.0 * fraction,
+            Units.byte_size(total, iec),
           ).then { |text| append_cache(text, cached, iec) }
         end
       end

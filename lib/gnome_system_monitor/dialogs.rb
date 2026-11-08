@@ -165,11 +165,7 @@ module GnomeSystemMonitor
 
     def heading
       if processes.length == 1
-        format(
-          _("Change Priority of %<name>s (PID %<pid>u)"),
-          name: processes.first.name,
-          pid:  processes.first.pid,
-        )
+        format(_("Change Priority of %s (PID %u)"), processes.first.name, processes.first.pid)
       else
         format(
           n_(
@@ -320,7 +316,7 @@ module GnomeSystemMonitor
     end
 
     def heading
-      format(_("Set Affinity of %<name>s (PID %<pid>u)"), name: process.name, pid: process.pid)
+      format(_("Set Affinity of %s (PID %u)"), process.name, process.pid)
     end
 
     def box = @box ||= Gtk::Box.new(:vertical, 12).tap { |b| b.margin_top = 6 }

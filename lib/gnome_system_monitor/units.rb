@@ -71,21 +71,16 @@ module GnomeSystemMonitor
       case
       when weeks.positive?
         # xgettext: weeks, days
-        format(_("%<weeks>uw%<days>ud"), weeks: weeks, days: days)
+        format(_("%uw%ud"), weeks, days)
       when days.positive?
         # xgettext: days, hours (0 -> 23)
-        format(_("%<days>ud%<hours>02uh"), days: days, hours: hours)
+        format(_("%ud%02uh"), days, hours)
       when hours.positive?
         # xgettext: hours (0 -> 23), minutes, seconds
-        format(_("%<hours>u:%<minutes>02u:%<seconds>02u"), hours: hours, minutes: minutes, seconds: seconds)
+        format(_("%u:%02u:%02u"), hours, minutes, seconds)
       else
         # xgettext: minutes, seconds, centiseconds
-        format(
-          _("%<minutes>u:%<seconds>02u.%<centiseconds>02u"),
-          minutes:      minutes,
-          seconds:      seconds,
-          centiseconds: centiseconds,
-        )
+        format(_("%u:%02u.%02u"), minutes, seconds, centiseconds)
       end
     end
 
